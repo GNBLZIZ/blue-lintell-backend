@@ -45,7 +45,6 @@ Copy `.env.example` to `.env` and set:
 | `AWS_SECRET_ACCESS_KEY` | No | AWS Comprehend |
 | `AWS_REGION` | No | e.g. `us-east-1` (default) |
 | `PORT` | No | Server port (default `3000`) |
-| `CRON_SECRET` | No | Secret for HTTP cron trigger (production) |
 
 Dashboard (in `dashboard/`): optional `VITE_API_URL` — backend URL in production; leave empty in dev (proxy used).
 
