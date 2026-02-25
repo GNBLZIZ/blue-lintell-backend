@@ -33,10 +33,12 @@ const comprehendClient = new ComprehendClient({
 
 // --- Twitter (Netrows) - v1 API, Bearer token in header per client spec ---
 const netrowsKey = process.env.NETROWS_API_KEY || '';
+if (!netrowsKey) {
+  console.warn('⚠️ NETROWS_API_KEY is missing. Twitter data collection will fail.');
+}
 const NETROWS_HEADERS = {
-  Authorization: `Bearer ${netrowsKey}`,
   'Content-Type': 'application/json',
-  ...(netrowsKey ? { 'x-api-key': netrowsKey } : {})
+  ...(netrowsKey ? { Authorization: `Bearer ${netrowsKey}`, 'x-api-key': netrowsKey } : {})
 };
 
 function logApiError(prefix, e) {
@@ -74,7 +76,7 @@ async function getRecentTweets(username, count = 20) {
     });
     const tweets = res.data.tweets || res.data;
     const list = Array.isArray(tweets) ? tweets : [];
-    return list.map(t => ({ id: t.id, text: t.text, createdAt: t.created_at, likes: t.likes ?? t.like_count, retweets: t.retweets ?? t.retweet_count, replies: t.replies ?? t.reply_count, views: t.views ?? t.view_count }));
+    return list.map(t => ({ id: t.id, text: t.text, createdAt: t.created_at, likes: t.likes ?? t.like_count ?? 0, retweets: t.retweets ?? t.retweet_count ?? 0, replies: t.replies ?? t.reply_count ?? 0, views: t.views ?? t.view_count ?? 0 }));
   } catch (e) {
     logApiError('Twitter tweets error:', e);
     return [];
@@ -104,7 +106,7 @@ async function getInstagramProfile(instagramBusinessId) {
   if (!userId) return null;
   try {
     const res = await axios.get(`https://graph.instagram.com/v21.0/${userId}`, {
-      params: { fields: 'id,username,account_type,media_count', access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
+      params: { fields: 'id,username,account_type,media_count,followers_count,follows_count,biography,profile_picture_url', access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
     });
     const d = res.data;
     return { username: d.username, name: d.username, followers: d.followers_count, following: d.follows_count, posts: d.media_count, bio: d.biography, profileImage: d.profile_picture_url };
@@ -148,7 +150,7 @@ async function getInstagramInsights(instagramBusinessId) {
 }
 
 // --- News (NewsData.io) - apikey + q + language (required); avoid unsupported params that cause 422 ---
-async function searchNews(athleteName, daysBack = 7) {
+async function searchNews(athleteName, daysBack = 7, country) {
   try {
     const q = (athleteName || '').trim();
     if (q.length < 3) return [];
@@ -157,7 +159,7 @@ async function searchNews(athleteName, daysBack = 7) {
         apikey: process.env.NEWSDATA_API_KEY,
         q,
         language: 'en',
-        country: 'gb'
+        ...(country ? { country } : {})
       }
     });
     return (res.data.results || []).map(a => ({ title: a.title, description: a.description, content: a.content, url: a.link, source: a.source_id, publishedAt: a.pubDate, imageUrl: a.image_url, category: a.category, sentiment: a.sentiment }));
@@ -234,7 +236,7 @@ function generateTimeline(tweets, news) {
   return events.slice(0, 10);
 }
 
-async function collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId) {
+async function collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId, country) {
   console.log('\n📊 Collecting data for', athleteName);
   try {
     console.log('🐦 Twitter...');
@@ -247,7 +249,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     const instagramPosts = hasInstagram ? await getInstagramPosts(instagramBusinessId, 10) : [];
     const instagramInsights = hasInstagram ? await getInstagramInsights(instagramBusinessId) : {};
     console.log('📰 News...');
-    const news = await searchNews(athleteName, 7);
+    const news = await searchNews(athleteName, 7, country);
     console.log('🤖 Sentiment...');
     const tweetSents = await Promise.all(tweets.slice(0, 10).map(t => analyzeSentiment(t.text)));
     tweets.forEach((t, i) => { if (i < 10) t.sentiment = tweetSents[i]; });
@@ -329,10 +331,10 @@ app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/athlete/refresh', async (req, res) => {
-  const { athleteId, athleteName, twitterHandle, instagramBusinessId } = req.body;
+  const { athleteId, athleteName, twitterHandle, instagramBusinessId, country } = req.body;
   if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
   try {
-    const data = await collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId || null);
+    const data = await collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId || null, country);
     res.json({ success: !!data, data });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -351,7 +353,7 @@ async function runDailyUpdate() {
     const { data: athletes, error } = await supabase.from('athletes').select('*').eq('active', true);
     if (error) throw error;
     for (const a of athletes || []) {
-      await collectAthleteData(a.id, a.name, a.twitter_handle, a.instagram_business_id);
+      await collectAthleteData(a.id, a.name, a.twitter_handle, a.instagram_business_id, a.country);
       await new Promise(r => setTimeout(r, 5000));
     }
     console.log('✅ Daily update done');
