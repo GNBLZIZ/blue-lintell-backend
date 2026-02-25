@@ -31,71 +31,140 @@ const comprehendClient = new ComprehendClient({
   }
 });
 
-// --- Twitter (Netrows) ---
+// --- Twitter (Netrows) - v1 API, Bearer token in header per client spec ---
+const netrowsKey = process.env.NETROWS_API_KEY || '';
+const NETROWS_HEADERS = {
+  Authorization: `Bearer ${netrowsKey}`,
+  'Content-Type': 'application/json',
+  ...(netrowsKey ? { 'x-api-key': netrowsKey } : {})
+};
+
+function logApiError(prefix, e) {
+  const status = e.response?.status;
+  const body = e.response?.data;
+  if (status != null || body != null) {
+    console.error(prefix, status != null ? `status ${status}` : '', body != null ? JSON.stringify(body) : e.message);
+  } else {
+    console.error(prefix, e.message);
+  }
+}
+
+// If Netrows returns 404, try NETROWS_BASE_URL=https://api.netrows.com/api/v1 in .env (see netrows.com/docs)
+const NETROWS_BASE = (process.env.NETROWS_BASE_URL || 'https://api.netrows.com/v1').replace(/\/$/, '');
+
 async function getTwitterProfile(username) {
   try {
-    const res = await axios.get('https://api.netrows.com/twitter/user', {
-      params: { username: username.replace('@', ''), apiKey: process.env.NETROWS_API_KEY }
+    const res = await axios.get(`${NETROWS_BASE}/twitter/profile`, {
+      params: { username: username.replace('@', '') },
+      headers: NETROWS_HEADERS
     });
-    return { username: res.data.username, name: res.data.name, followers: res.data.followers_count, following: res.data.following_count, verified: res.data.verified, bio: res.data.description, profileImage: res.data.profile_image_url };
-  } catch (e) { console.error('Twitter profile error:', e.message); return null; }
+    const d = res.data;
+    return { username: d.username, name: d.name, followers: d.followers, following: d.following, verified: d.verified, bio: d.bio, profileImage: d.profile_image_url };
+  } catch (e) {
+    logApiError('Twitter profile error:', e);
+    return null;
+  }
 }
 
 async function getRecentTweets(username, count = 20) {
   try {
-    const res = await axios.get('https://api.netrows.com/twitter/user-tweets', {
-      params: { username: username.replace('@', ''), count, apiKey: process.env.NETROWS_API_KEY }
+    const res = await axios.get(`${NETROWS_BASE}/twitter/tweets`, {
+      params: { username: username.replace('@', ''), count },
+      headers: NETROWS_HEADERS
     });
-    return (res.data.tweets || []).map(t => ({ id: t.id, text: t.text, createdAt: t.created_at, likes: t.like_count, retweets: t.retweet_count, replies: t.reply_count, views: t.view_count }));
-  } catch (e) { console.error('Twitter tweets error:', e.message); return []; }
+    const tweets = res.data.tweets || res.data;
+    const list = Array.isArray(tweets) ? tweets : [];
+    return list.map(t => ({ id: t.id, text: t.text, createdAt: t.created_at, likes: t.likes ?? t.like_count, retweets: t.retweets ?? t.retweet_count, replies: t.replies ?? t.reply_count, views: t.views ?? t.view_count }));
+  } catch (e) {
+    logApiError('Twitter tweets error:', e);
+    return [];
+  }
 }
 
 async function getTwitterMentions(username, count = 20) {
   try {
-    const res = await axios.get('https://api.netrows.com/twitter/mentions', {
-      params: { username: username.replace('@', ''), count, apiKey: process.env.NETROWS_API_KEY }
+    const res = await axios.get(`${NETROWS_BASE}/twitter/mentions`, {
+      params: { username: username.replace('@', ''), count },
+      headers: NETROWS_HEADERS
     });
-    return res.data.mentions || [];
-  } catch (e) { console.error('Twitter mentions error:', e.message); return []; }
+    return res.data.mentions || res.data?.data || [];
+  } catch (e) {
+    logApiError('Twitter mentions error:', e);
+    return [];
+  }
 }
 
-// --- Instagram ---
+// --- Instagram (Graph API v21.0, token in query; use INSTAGRAM_USER_ID when no id provided) ---
+function resolveInstagramUserId(instagramBusinessId) {
+  return (instagramBusinessId && String(instagramBusinessId).trim()) || process.env.INSTAGRAM_USER_ID || '';
+}
+
 async function getInstagramProfile(instagramBusinessId) {
+  const userId = resolveInstagramUserId(instagramBusinessId);
+  if (!userId) return null;
   try {
-    const res = await axios.get(`https://graph.instagram.com/${instagramBusinessId}`, {
-      params: { fields: 'username,name,followers_count,follows_count,media_count,biography,profile_picture_url', access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
+    const res = await axios.get(`https://graph.instagram.com/v21.0/${userId}`, {
+      params: { fields: 'id,username,account_type,media_count', access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
     });
-    return { username: res.data.username, name: res.data.name, followers: res.data.followers_count, following: res.data.follows_count, posts: res.data.media_count, bio: res.data.biography, profileImage: res.data.profile_picture_url };
-  } catch (e) { console.error('Instagram profile error:', e.message); return null; }
+    const d = res.data;
+    return { username: d.username, name: d.username, followers: d.followers_count, following: d.follows_count, posts: d.media_count, bio: d.biography, profileImage: d.profile_picture_url };
+  } catch (e) {
+    logApiError('Instagram profile error:', e);
+    return null;
+  }
 }
 
 async function getInstagramPosts(instagramBusinessId, limit = 10) {
+  const userId = resolveInstagramUserId(instagramBusinessId);
+  if (!userId) return [];
   try {
-    const res = await axios.get(`https://graph.instagram.com/${instagramBusinessId}/media`, {
+    const res = await axios.get(`https://graph.instagram.com/v21.0/${userId}/media`, {
       params: { fields: 'id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count', limit, access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
     });
     return (res.data.data || []).map(p => ({ id: p.id, caption: p.caption, type: p.media_type, url: p.media_url, permalink: p.permalink, timestamp: p.timestamp, likes: p.like_count, comments: p.comments_count }));
-  } catch (e) { console.error('Instagram posts error:', e.message); return []; }
+  } catch (e) {
+    logApiError('Instagram posts error:', e);
+    return [];
+  }
 }
 
 async function getInstagramInsights(instagramBusinessId) {
+  const userId = resolveInstagramUserId(instagramBusinessId);
+  if (!userId) return {};
   try {
-    const res = await axios.get(`https://graph.instagram.com/${instagramBusinessId}/insights`, {
+    const res = await axios.get(`https://graph.instagram.com/v21.0/${userId}/insights`, {
       params: { metric: 'impressions,reach,profile_views', period: 'day', access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
     });
     const o = {}; (res.data.data || []).forEach(m => { o[m.name] = m.values?.[0]?.value; }); return o;
-  } catch (e) { console.error('Instagram insights error:', e.message); return {}; }
+  } catch (e) {
+    // 400 = insights not supported (e.g. Basic Display / personal accounts); skip without noisy error
+    if (e.response?.status === 400) {
+      console.warn('Instagram insights not available (400 - often for Basic Display/personal accounts).');
+    } else {
+      logApiError('Instagram insights error:', e);
+    }
+    return {};
+  }
 }
 
-// --- News ---
+// --- News (NewsData.io) - apikey + q + language (required); avoid unsupported params that cause 422 ---
 async function searchNews(athleteName, daysBack = 7) {
   try {
-    const fromDate = new Date(); fromDate.setDate(fromDate.getDate() - daysBack);
+    const q = (athleteName || '').trim();
+    if (q.length < 3) return [];
     const res = await axios.get('https://newsdata.io/api/1/news', {
-      params: { apikey: process.env.NEWSDATA_API_KEY, q: athleteName, language: 'en', category: 'sports', from_date: fromDate.toISOString().split('T')[0], size: 50 }
+      params: {
+        apikey: process.env.NEWSDATA_API_KEY,
+        q,
+        language: 'en',
+        country: 'gb'
+      }
     });
     return (res.data.results || []).map(a => ({ title: a.title, description: a.description, content: a.content, url: a.link, source: a.source_id, publishedAt: a.pubDate, imageUrl: a.image_url, category: a.category, sentiment: a.sentiment }));
-  } catch (e) { console.error('News search error:', e.message); return []; }
+  } catch (e) {
+    logApiError('News search error:', e);
+    return [];
+  }
 }
 
 // --- Sentiment (AWS) ---
@@ -104,7 +173,14 @@ async function analyzeSentiment(text, languageCode = 'en') {
     const cmd = new DetectSentimentCommand({ Text: text.substring(0, 5000), LanguageCode: languageCode });
     const res = await comprehendClient.send(cmd);
     return { sentiment: res.Sentiment, scores: { positive: res.SentimentScore.Positive, negative: res.SentimentScore.Negative, neutral: res.SentimentScore.Neutral, mixed: res.SentimentScore.Mixed } };
-  } catch (e) { console.error('Sentiment error:', e.message); return { sentiment: 'NEUTRAL', scores: { positive: 0, negative: 0, neutral: 1, mixed: 0 } }; }
+  } catch (e) {
+    if (e.message && e.message.includes('subscription')) {
+      console.error('Sentiment error: AWS Comprehend not enabled for this account. Enable it in AWS Console → Comprehend, or check IAM/subscription.');
+    } else {
+      console.error('Sentiment error:', e.message);
+    }
+    return { sentiment: 'NEUTRAL', scores: { positive: 0, negative: 0, neutral: 1, mixed: 0 } };
+  }
 }
 
 function calculateOverallSentiment(sentimentResults) {
@@ -166,9 +242,10 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     const tweets = await getRecentTweets(twitterHandle, 20);
     const mentions = await getTwitterMentions(twitterHandle, 20);
     console.log('📷 Instagram...');
-    const instagramProfile = instagramBusinessId ? await getInstagramProfile(instagramBusinessId) : null;
-    const instagramPosts = instagramBusinessId ? await getInstagramPosts(instagramBusinessId, 10) : [];
-    const instagramInsights = instagramBusinessId ? await getInstagramInsights(instagramBusinessId) : {};
+    const hasInstagram = !!resolveInstagramUserId(instagramBusinessId);
+    const instagramProfile = hasInstagram ? await getInstagramProfile(instagramBusinessId) : null;
+    const instagramPosts = hasInstagram ? await getInstagramPosts(instagramBusinessId, 10) : [];
+    const instagramInsights = hasInstagram ? await getInstagramInsights(instagramBusinessId) : {};
     console.log('📰 News...');
     const news = await searchNews(athleteName, 7);
     console.log('🤖 Sentiment...');
@@ -177,6 +254,8 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     const newsSents = await Promise.all(news.slice(0, 10).map(a => analyzeSentiment(a.title + ' ' + (a.description || ''))));
     news.forEach((a, i) => { if (i < 10) a.sentiment = newsSents[i]; });
     const athleteData = { profile: twitterProfile, tweets, mentions, instagram: { profile: instagramProfile, posts: instagramPosts, insights: instagramInsights }, news };
+    const twitterOk = !!twitterProfile;
+    const sentimentOk = (tweetSents.length > 0 && tweetSents.some(s => (s.scores.positive + s.scores.negative) > 0)) || (newsSents.length > 0 && newsSents.some(s => (s.scores.positive + s.scores.negative) > 0));
     console.log('📈 Scores...');
     const scores = calculateReputationScores(athleteData);
     const timeline = generateTimeline(tweets, news);
@@ -200,7 +279,8 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
       timeline_events: timeline,
       total_mentions: mentions.length,
       news_articles_count: news.length,
-      avg_tweet_engagement: tweets.length ? Math.round(tweets.reduce((s, t) => s + t.likes + t.retweets, 0) / tweets.length) : 0
+      avg_tweet_engagement: tweets.length ? Math.round(tweets.reduce((s, t) => s + t.likes + t.retweets, 0) / tweets.length) : 0,
+      perception_details: { data_quality: { twitter_ok: twitterOk, sentiment_ok: sentimentOk } }
     };
     dashboardData.overall_alert_level = calculateAlertLevel(dashboardData);
     console.log('💾 Saving...');

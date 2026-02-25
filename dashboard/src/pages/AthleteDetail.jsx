@@ -98,6 +98,11 @@ export default function AthleteDetail() {
             {refreshing ? 'Refreshing…' : 'Refresh data'}
           </button>
         </div>
+        {dashboard.perception_details?.data_quality && (!dashboard.perception_details.data_quality.twitter_ok || !dashboard.perception_details.data_quality.sentiment_ok) && (
+          <p className="updated" style={{ background: 'rgba(255,193,7,0.15)', padding: '0.5rem 0.75rem', borderRadius: 6, marginTop: '0.5rem' }}>
+            ⚠ Scores based on limited data: {!dashboard.perception_details.data_quality.twitter_ok && 'Twitter unavailable. '}{!dashboard.perception_details.data_quality.sentiment_ok && 'Sentiment analysis unavailable.'} Check API configuration (Netrows, AWS Comprehend).
+          </p>
+        )}
         <p className="updated">Last updated: {dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}</p>
         {dashboard.twitter_handle && <p className="updated">Twitter: {dashboard.twitter_handle}</p>}
       </div>
