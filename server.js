@@ -31,15 +31,11 @@ const comprehendClient = new ComprehendClient({
   }
 });
 
-// --- Twitter (Netrows) - v1 API, Bearer token in header per client spec ---
-const netrowsKey = process.env.NETROWS_API_KEY || '';
-if (!netrowsKey) {
-  console.warn('⚠️ NETROWS_API_KEY is missing. Twitter data collection will fail.');
+// --- Apify (Twitter + Instagram) - replaces Netrows and Meta Instagram Graph API ---
+const APIFY_TOKEN = process.env.APIFY_API_TOKEN || '';
+if (!APIFY_TOKEN) {
+  console.warn('⚠️ APIFY_API_TOKEN is missing. Twitter and Instagram data collection will fail.');
 }
-const NETROWS_HEADERS = {
-  'Content-Type': 'application/json',
-  ...(netrowsKey ? { Authorization: `Bearer ${netrowsKey}`, 'x-api-key': netrowsKey } : {})
-};
 
 function logApiError(prefix, e) {
   const status = e.response?.status;
@@ -51,65 +47,145 @@ function logApiError(prefix, e) {
   }
 }
 
-// If Netrows returns 404, try NETROWS_BASE_URL=https://api.netrows.com/api/v1 in .env (see netrows.com/docs)
-const NETROWS_BASE = (process.env.NETROWS_BASE_URL || 'https://api.netrows.com/v1').replace(/\/$/, '');
+/** Run an Apify actor synchronously and return dataset items (JSON). See https://docs.apify.com/api/v2 */
+async function apifyRunSync(actorId, input, options = {}) {
+  if (!APIFY_TOKEN) return [];
+  const timeout = options.timeout ?? 120;
+  const url = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${encodeURIComponent(APIFY_TOKEN)}&format=json&timeout=${timeout}`;
+  try {
+    const res = await axios.post(url, input, {
+      headers: { 'Content-Type': 'application/json' },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      timeout: (timeout + 10) * 1000
+    });
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (e) {
+    logApiError(`Apify ${actorId}:`, e);
+    return [];
+  }
+}
+
+// --- Twitter via Apify apidojo/tweet-scraper (replaces Netrows) ---
+const APIFY_TWEET_SCRAPER = 'apidojo~tweet-scraper';
 
 async function getTwitterProfile(username) {
-  try {
-    const res = await axios.get(`${NETROWS_BASE}/twitter/profile`, {
-      params: { username: username.replace('@', '') },
-      headers: NETROWS_HEADERS
-    });
-    const d = res.data;
-    return { username: d.username, name: d.name, followers: d.followers, following: d.following, verified: d.verified, bio: d.bio, profileImage: d.profile_image_url };
-  } catch (e) {
-    logApiError('Twitter profile error:', e);
-    return null;
-  }
+  const handle = username.replace('@', '');
+  const items = await apifyRunSync(APIFY_TWEET_SCRAPER, {
+    twitterHandles: [handle],
+    maxItems: 5,
+    sort: 'Latest'
+  }, { timeout: 90 });
+  if (!items.length) return null;
+  const first = items[0];
+  // Apify may return user object first (type 'user') or tweet with nested user
+  const isUserObj = first.type === 'user' || (first.followers != null && first.full_text == null && first.text == null);
+  const user = isUserObj ? first : (first.user ?? first.author ?? first);
+  const followers = user.followers_count ?? user.followers ?? user.followersCount ?? 0;
+  const following = user.following_count ?? user.following ?? user.followingCount ?? 0;
+  return {
+    username: user.userName ?? user.username ?? user.screen_name ?? handle,
+    name: user.name ?? user.username ?? user.userName ?? handle,
+    followers: typeof followers === 'number' ? followers : parseInt(followers, 10) || 0,
+    following: typeof following === 'number' ? following : parseInt(following, 10) || 0,
+    verified: user.isBlueVerified ?? user.verified ?? user.verified_user ?? false,
+    bio: user.description ?? user.bio ?? '',
+    profileImage: user.profilePicture ?? user.profile_image_url_https ?? user.profile_image_url ?? user.avatar ?? null
+  };
 }
 
 async function getRecentTweets(username, count = 20) {
-  try {
-    const res = await axios.get(`${NETROWS_BASE}/twitter/tweets`, {
-      params: { username: username.replace('@', ''), count },
-      headers: NETROWS_HEADERS
-    });
-    const tweets = res.data.tweets || res.data;
-    const list = Array.isArray(tweets) ? tweets : [];
-    return list.map(t => ({ id: t.id, text: t.text, createdAt: t.created_at, likes: t.likes ?? t.like_count ?? 0, retweets: t.retweets ?? t.retweet_count ?? 0, replies: t.replies ?? t.reply_count ?? 0, views: t.views ?? t.view_count ?? 0 }));
-  } catch (e) {
-    logApiError('Twitter tweets error:', e);
-    return [];
-  }
+  const handle = username.replace('@', '');
+  const items = await apifyRunSync(APIFY_TWEET_SCRAPER, {
+    twitterHandles: [handle],
+    maxItems: Math.min(count, 100),
+    sort: 'Latest'
+  }, { timeout: 120 });
+  const list = Array.isArray(items) ? items : [];
+  // Apify can return user/profile objects first; skip items that are clearly not tweets (no content, no tweet id)
+  const tweetsOnly = list.filter(t => {
+    if (t.type === 'user') return false;
+    const text = t.full_text ?? t.text ?? t.content ?? '';
+    const hasContent = typeof text === 'string' && text.trim().length > 0;
+    const hasTweetId = t.tweet_id ?? t.id_str ?? t.id;
+    return hasContent || hasTweetId;
+  });
+  return tweetsOnly.map(t => ({
+    id: t.id ?? t.tweet_id ?? t.id_str,
+    text: t.full_text ?? t.text ?? t.content ?? '',
+    createdAt: t.created_at ?? t.createdAt ?? t.date ?? t.created,
+    likes: t.likeCount ?? t.likes ?? t.favorite_count ?? t.like_count ?? 0,
+    retweets: t.retweetCount ?? t.retweets ?? t.retweet_count ?? 0,
+    replies: t.replyCount ?? t.replies ?? t.reply_count ?? 0,
+    views: t.viewCount ?? t.views ?? t.view_count ?? 0
+  })).map(t => ({
+    ...t,
+    likes: Number(t.likes) || 0,
+    retweets: Number(t.retweets) || 0,
+    replies: Number(t.replies) || 0,
+    views: Number(t.views) || 0
+  }));
 }
 
 async function getTwitterMentions(username, count = 20) {
-  try {
-    const res = await axios.get(`${NETROWS_BASE}/twitter/mentions`, {
-      params: { username: username.replace('@', ''), count },
-      headers: NETROWS_HEADERS
-    });
-    return res.data.mentions || res.data?.data || [];
-  } catch (e) {
-    logApiError('Twitter mentions error:', e);
-    return [];
-  }
+  const handle = username.replace('@', '');
+  const items = await apifyRunSync(APIFY_TWEET_SCRAPER, {
+    searchTerms: [`@${handle}`],
+    maxItems: Math.min(count, 100),
+    sort: 'Latest'
+  }, { timeout: 120 });
+  return Array.isArray(items) ? items : [];
 }
 
-// --- Instagram (Graph API v21.0, token in query; use INSTAGRAM_USER_ID when no id provided) ---
-function resolveInstagramUserId(instagramBusinessId) {
-  return (instagramBusinessId && String(instagramBusinessId).trim()) || process.env.INSTAGRAM_USER_ID || '';
+// --- Instagram via Apify apify/instagram-profile-scraper (replaces Meta Graph API) ---
+const APIFY_INSTAGRAM_SCRAPER = 'apify~instagram-profile-scraper';
+
+/**
+ * Resolve Instagram identifier to username for Apify.
+ * Apify expects username (e.g. mosalah), not Meta numeric ID (e.g. 27298082519781975).
+ * - Accepts: username, @username, or profile URL (https://www.instagram.com/username/).
+ * - If value is purely numeric (old Meta Business ID), returns '' and skips Instagram (logs once).
+ */
+function resolveInstagramUsername(instagramBusinessId) {
+  const v = (instagramBusinessId && String(instagramBusinessId).trim()) || process.env.INSTAGRAM_USER_ID || '';
+  const raw = v.replace('@', '').trim();
+  if (!raw) return '';
+
+  // Extract username from Instagram profile URL if present
+  const urlMatch = raw.match(/instagram\.com\/([^/?]+)/i);
+  const candidate = urlMatch ? urlMatch[1] : raw;
+
+  // Apify does not accept numeric IDs; only usernames (letters, numbers, underscores, dots)
+  const isNumericId = /^\d+$/.test(candidate);
+  if (isNumericId) {
+    console.warn('⚠️ Instagram skipped: instagram_business_id is a numeric ID. Apify needs username (e.g. mosalah). Update the athlete record with their Instagram username.');
+    return '';
+  }
+
+  return candidate;
 }
 
 async function getInstagramProfile(instagramBusinessId) {
-  const userId = resolveInstagramUserId(instagramBusinessId);
-  if (!userId) return null;
+  const username = resolveInstagramUsername(instagramBusinessId);
+  if (!username) return null;
   try {
-    const res = await axios.get(`https://graph.instagram.com/v21.0/${userId}`, {
-      params: { fields: 'id,username,account_type,media_count,followers_count,follows_count,biography,profile_picture_url', access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
-    });
-    const d = res.data;
-    return { username: d.username, name: d.username, followers: d.followers_count, following: d.follows_count, posts: d.media_count, bio: d.biography, profileImage: d.profile_picture_url };
+    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, {
+      usernames: [username],
+      resultsLimit: 1
+    }, { timeout: 90 });
+    const raw = items && items[0] ? items[0] : null;
+    if (!raw) return null;
+    const followers = raw.followersCount ?? raw.followers ?? 0;
+    const following = raw.followsCount ?? raw.following ?? 0;
+    return {
+      username: raw.username ?? username,
+      name: raw.fullName ?? raw.username ?? username,
+      followers: typeof followers === 'number' ? followers : parseInt(followers, 10) || 0,
+      following: typeof following === 'number' ? following : parseInt(following, 10) || 0,
+      posts: raw.postsCount ?? raw.mediaCount ?? 0,
+      bio: raw.biography ?? raw.bio ?? '',
+      profileImage: raw.profilePicUrl ?? raw.profile_picture_url ?? null
+    };
   } catch (e) {
     logApiError('Instagram profile error:', e);
     return null;
@@ -117,13 +193,26 @@ async function getInstagramProfile(instagramBusinessId) {
 }
 
 async function getInstagramPosts(instagramBusinessId, limit = 10) {
-  const userId = resolveInstagramUserId(instagramBusinessId);
-  if (!userId) return [];
+  const username = resolveInstagramUsername(instagramBusinessId);
+  if (!username) return [];
   try {
-    const res = await axios.get(`https://graph.instagram.com/v21.0/${userId}/media`, {
-      params: { fields: 'id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count', limit, access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
-    });
-    return (res.data.data || []).map(p => ({ id: p.id, caption: p.caption, type: p.media_type, url: p.media_url, permalink: p.permalink, timestamp: p.timestamp, likes: p.like_count, comments: p.comments_count }));
+    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, {
+      usernames: [username],
+      resultsLimit: 1
+    }, { timeout: 90 });
+    const raw = items && items[0] ? items[0] : null;
+    const posts = raw?.latestPosts ?? raw?.latest_posts ?? raw?.posts ?? [];
+    const list = Array.isArray(posts) ? posts.slice(0, limit) : [];
+    return list.map(p => ({
+      id: p.id ?? p.shortCode,
+      caption: p.caption ?? p.captionText ?? '',
+      type: p.type ?? p.mediaType ?? 'IMAGE',
+      url: p.displayUrl ?? p.url ?? p.mediaUrl ?? null,
+      permalink: p.url ?? p.permalink ?? null,
+      timestamp: p.timestamp ?? p.takenAt ?? p.createdAt,
+      likes: Number(p.likesCount ?? p.likes ?? 0) || 0,
+      comments: Number(p.commentsCount ?? p.comments ?? 0) || 0
+    }));
   } catch (e) {
     logApiError('Instagram posts error:', e);
     return [];
@@ -131,20 +220,21 @@ async function getInstagramPosts(instagramBusinessId, limit = 10) {
 }
 
 async function getInstagramInsights(instagramBusinessId) {
-  const userId = resolveInstagramUserId(instagramBusinessId);
-  if (!userId) return {};
+  const username = resolveInstagramUsername(instagramBusinessId);
+  if (!username) return {};
   try {
-    const res = await axios.get(`https://graph.instagram.com/v21.0/${userId}/insights`, {
-      params: { metric: 'impressions,reach,profile_views', period: 'day', access_token: process.env.INSTAGRAM_ACCESS_TOKEN }
-    });
-    const o = {}; (res.data.data || []).forEach(m => { o[m.name] = m.values?.[0]?.value; }); return o;
+    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, {
+      usernames: [username],
+      resultsLimit: 1
+    }, { timeout: 90 });
+    const raw = items && items[0] ? items[0] : null;
+    if (!raw) return {};
+    return {
+      impressions: raw.impressions ?? null,
+      reach: raw.reach ?? null,
+      profile_views: raw.profileViews ?? null
+    };
   } catch (e) {
-    // 400 = insights not supported (e.g. Basic Display / personal accounts); skip without noisy error
-    if (e.response?.status === 400) {
-      console.warn('Instagram insights not available (400 - often for Basic Display/personal accounts).');
-    } else {
-      logApiError('Instagram insights error:', e);
-    }
     return {};
   }
 }
@@ -170,9 +260,13 @@ async function searchNews(athleteName, daysBack = 7, country) {
 }
 
 // --- Sentiment (AWS) ---
+const NEUTRAL_FALLBACK = { sentiment: 'NEUTRAL', scores: { positive: 0, negative: 0, neutral: 1, mixed: 0 } };
+
 async function analyzeSentiment(text, languageCode = 'en') {
+  const trimmed = typeof text === 'string' ? text.trim() : '';
+  if (!trimmed || trimmed.length < 1) return NEUTRAL_FALLBACK;
   try {
-    const cmd = new DetectSentimentCommand({ Text: text.substring(0, 5000), LanguageCode: languageCode });
+    const cmd = new DetectSentimentCommand({ Text: trimmed.substring(0, 5000), LanguageCode: languageCode });
     const res = await comprehendClient.send(cmd);
     return { sentiment: res.Sentiment, scores: { positive: res.SentimentScore.Positive, negative: res.SentimentScore.Negative, neutral: res.SentimentScore.Neutral, mixed: res.SentimentScore.Mixed } };
   } catch (e) {
@@ -186,10 +280,11 @@ async function analyzeSentiment(text, languageCode = 'en') {
 }
 
 function calculateOverallSentiment(sentimentResults) {
-  if (!sentimentResults || sentimentResults.length === 0) return 50;
+  const valid = (sentimentResults || []).filter(r => r && r.scores);
+  if (valid.length === 0) return 50;
   let total = 0;
-  sentimentResults.forEach(r => { total += (r.scores.positive * 100) + (r.scores.neutral * 50) + (r.scores.negative * 0) + (r.scores.mixed * 50); });
-  return Math.round(total / sentimentResults.length);
+  valid.forEach(r => { total += (r.scores.positive * 100) + (r.scores.neutral * 50) + (r.scores.negative * 0) + (r.scores.mixed * 50); });
+  return Math.round(total / valid.length);
 }
 
 function calculateReputationScores(athleteData) {
@@ -244,7 +339,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     const tweets = await getRecentTweets(twitterHandle, 20);
     const mentions = await getTwitterMentions(twitterHandle, 20);
     console.log('📷 Instagram...');
-    const hasInstagram = !!resolveInstagramUserId(instagramBusinessId);
+    const hasInstagram = !!resolveInstagramUsername(instagramBusinessId);
     const instagramProfile = hasInstagram ? await getInstagramProfile(instagramBusinessId) : null;
     const instagramPosts = hasInstagram ? await getInstagramPosts(instagramBusinessId, 10) : [];
     const instagramInsights = hasInstagram ? await getInstagramInsights(instagramBusinessId) : {};
@@ -257,7 +352,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     news.forEach((a, i) => { if (i < 10) a.sentiment = newsSents[i]; });
     const athleteData = { profile: twitterProfile, tweets, mentions, instagram: { profile: instagramProfile, posts: instagramPosts, insights: instagramInsights }, news };
     const twitterOk = !!twitterProfile;
-    const sentimentOk = (tweetSents.length > 0 && tweetSents.some(s => (s.scores.positive + s.scores.negative) > 0)) || (newsSents.length > 0 && newsSents.some(s => (s.scores.positive + s.scores.negative) > 0));
+    const sentimentOk = (tweetSents.length > 0 && tweetSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0)) || (newsSents.length > 0 && newsSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0));
     console.log('📈 Scores...');
     const scores = calculateReputationScores(athleteData);
     const timeline = generateTimeline(tweets, news);
@@ -331,10 +426,12 @@ app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/athlete/refresh', async (req, res) => {
-  const { athleteId, athleteName, twitterHandle, instagramBusinessId, country } = req.body;
+  const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country } = req.body;
   if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
+  // Instagram: accept instagramUsername or userName in body (Apify needs username); else fall back to instagramBusinessId
+  const instagramId = instagramUsername ?? userName ?? instagramBusinessId ?? null;
   try {
-    const data = await collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId || null, country);
+    const data = await collectAthleteData(athleteId, athleteName, twitterHandle, instagramId, country);
     res.json({ success: !!data, data });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -347,6 +444,7 @@ app.get('/api/athletes', async (req, res) => {
 });
 
 // --- Daily job (used by in-process cron and by HTTP trigger for production) ---
+// When: in-process cron at 06:00 server time (0 6 * * *). Same logic as POST /api/athlete/refresh (Apify Twitter/Instagram, News, Sentiment).
 async function runDailyUpdate() {
   console.log('\n🔄 DAILY UPDATE');
   try {
@@ -364,7 +462,7 @@ async function runDailyUpdate() {
   }
 }
 
-// In-process cron: runs daily at 06:00 server time
+// In-process cron: runs daily at 06:00 server time (same Apify/Instagram logic as manual refresh)
 cron.schedule('0 6 * * *', runDailyUpdate);
 
 // HTTP-triggered cron: for production hosts that sleep (e.g. Render). Call from cron-job.org or similar.

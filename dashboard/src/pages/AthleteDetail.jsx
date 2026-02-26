@@ -48,6 +48,7 @@ export default function AthleteDetail() {
         athleteName: dashboard.athlete_name,
         twitterHandle: dashboard.twitter_handle,
         instagramBusinessId: dashboard.instagram_business_id || '',
+        userName: dashboard.instagram_business_id || '', // Instagram username for Apify (same as instagramBusinessId)
       })
       .then((res) => {
         if (res.success) {
