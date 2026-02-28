@@ -39,6 +39,14 @@ CREATE TABLE IF NOT EXISTS athlete_dashboards (
   avg_tweet_engagement INTEGER DEFAULT 0,
   overall_alert_level TEXT DEFAULT 'nominal',
   perception_details JSONB,
+  avg_engagement_rate_twitter NUMERIC,
+  avg_engagement_rate_instagram NUMERIC,
+  avg_likes_twitter INTEGER,
+  avg_comments_retweets_twitter INTEGER,
+  avg_likes_instagram INTEGER,
+  avg_comments_instagram INTEGER,
+  recent_instagram_posts JSONB DEFAULT '[]',
+  engagement_aggregates JSONB,
   UNIQUE(athlete_id)
 );
 

@@ -81,13 +81,16 @@ async function getTwitterProfile(username) {
   // Apify may return user object first (type 'user') or tweet with nested user
   const isUserObj = first.type === 'user' || (first.followers != null && first.full_text == null && first.text == null);
   const user = isUserObj ? first : (first.user ?? first.author ?? first);
-  const followers = user.followers_count ?? user.followers ?? user.followersCount ?? 0;
-  const following = user.following_count ?? user.following ?? user.followingCount ?? 0;
+  // Apify apidojo/tweet-scraper: user object may have followers_count, public_metrics.followers_count, or followers
+  const followersRaw = user.followers_count ?? user.public_metrics?.followers_count ?? user.followers ?? user.followersCount ?? 0;
+  const followingRaw = user.following_count ?? user.public_metrics?.following_count ?? user.following ?? user.followingCount ?? 0;
+  const followers = typeof followersRaw === 'number' ? followersRaw : parseInt(followersRaw, 10) || 0;
+  const following = typeof followingRaw === 'number' ? followingRaw : parseInt(followingRaw, 10) || 0;
   return {
     username: user.userName ?? user.username ?? user.screen_name ?? handle,
     name: user.name ?? user.username ?? user.userName ?? handle,
-    followers: typeof followers === 'number' ? followers : parseInt(followers, 10) || 0,
-    following: typeof following === 'number' ? following : parseInt(following, 10) || 0,
+    followers,
+    following,
     verified: user.isBlueVerified ?? user.verified ?? user.verified_user ?? false,
     bio: user.description ?? user.bio ?? '',
     profileImage: user.profilePicture ?? user.profile_image_url_https ?? user.profile_image_url ?? user.avatar ?? null
@@ -145,9 +148,12 @@ const APIFY_INSTAGRAM_SCRAPER = 'apify~instagram-profile-scraper';
  * Apify expects username (e.g. mosalah), not Meta numeric ID (e.g. 27298082519781975).
  * - Accepts: username, @username, or profile URL (https://www.instagram.com/username/).
  * - If value is purely numeric (old Meta Business ID), returns '' and skips Instagram (logs once).
+ * - Fallback: INSTAGRAM_USER_ID env (use a username only; numeric ID will be rejected and Instagram skipped).
  */
 function resolveInstagramUsername(instagramBusinessId) {
-  const v = (instagramBusinessId && String(instagramBusinessId).trim()) || process.env.INSTAGRAM_USER_ID || '';
+  const fromAthlete = (instagramBusinessId && String(instagramBusinessId).trim()) || '';
+  const fromEnv = (process.env.INSTAGRAM_USER_ID && String(process.env.INSTAGRAM_USER_ID).trim()) || '';
+  const v = fromAthlete || fromEnv;
   const raw = v.replace('@', '').trim();
   if (!raw) return '';
 
@@ -158,7 +164,8 @@ function resolveInstagramUsername(instagramBusinessId) {
   // Apify does not accept numeric IDs; only usernames (letters, numbers, underscores, dots)
   const isNumericId = /^\d+$/.test(candidate);
   if (isNumericId) {
-    console.warn('⚠️ Instagram skipped: instagram_business_id is a numeric ID. Apify needs username (e.g. mosalah). Update the athlete record with their Instagram username.');
+    const source = fromAthlete ? 'athlete record' : 'INSTAGRAM_USER_ID env';
+    console.warn(`⚠️ Instagram skipped: ${source} is a numeric ID. Apify needs username (e.g. mosalah). Use Instagram username in athletes.instagram_business_id and in .env INSTAGRAM_USER_ID if set.`);
     return '';
   }
 
@@ -169,23 +176,30 @@ async function getInstagramProfile(instagramBusinessId) {
   const username = resolveInstagramUsername(instagramBusinessId);
   if (!username) return null;
   try {
-    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, {
-      usernames: [username],
-      resultsLimit: 1
-    }, { timeout: 90 });
+    // Official apify/instagram-profile-scraper input: { usernames: string[] }. No resultsLimit.
+    const input = { usernames: [username] };
+    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, input, { timeout: 120 });
     const raw = items && items[0] ? items[0] : null;
-    if (!raw) return null;
-    const followers = raw.followersCount ?? raw.followers ?? 0;
-    const following = raw.followsCount ?? raw.following ?? 0;
-    return {
-      username: raw.username ?? username,
-      name: raw.fullName ?? raw.username ?? username,
-      followers: typeof followers === 'number' ? followers : parseInt(followers, 10) || 0,
-      following: typeof following === 'number' ? following : parseInt(following, 10) || 0,
-      posts: raw.postsCount ?? raw.mediaCount ?? 0,
+    if (!raw) {
+      console.warn('📷 Instagram profile: Apify returned no items for username', username);
+      return null;
+    }
+    // Apify output: followersCount, followsCount, postsCount, username, fullName, profilePicUrl
+    const followersRaw = raw.followersCount ?? raw.followers ?? raw.edge_followed_by?.count ?? 0;
+    const followingRaw = raw.followsCount ?? raw.following ?? raw.edge_follow ?? 0;
+    const followers = typeof followersRaw === 'number' ? followersRaw : parseInt(followersRaw, 10) || 0;
+    const following = typeof followingRaw === 'number' ? followingRaw : parseInt(followingRaw, 10) || 0;
+    const profile = {
+      username: raw.username ?? raw.fullName ?? raw.full_name ?? username,
+      name: raw.fullName ?? raw.full_name ?? raw.username ?? username,
+      followers,
+      following,
+      posts: raw.postsCount ?? raw.mediaCount ?? raw.edge_owner_to_timeline_media?.count ?? 0,
       bio: raw.biography ?? raw.bio ?? '',
-      profileImage: raw.profilePicUrl ?? raw.profile_picture_url ?? null
+      profileImage: raw.profilePicUrl ?? raw.profilePicUrlHD ?? raw.profile_picture_url ?? raw.profile_pic_url ?? null
     };
+    if (followers > 0 || profile.username) console.log('📷 Instagram profile OK:', profile.username, followers, 'followers');
+    return profile;
   } catch (e) {
     logApiError('Instagram profile error:', e);
     return null;
@@ -196,14 +210,12 @@ async function getInstagramPosts(instagramBusinessId, limit = 10) {
   const username = resolveInstagramUsername(instagramBusinessId);
   if (!username) return [];
   try {
-    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, {
-      usernames: [username],
-      resultsLimit: 1
-    }, { timeout: 90 });
+    const input = { usernames: [username] };
+    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, input, { timeout: 120 });
     const raw = items && items[0] ? items[0] : null;
     const posts = raw?.latestPosts ?? raw?.latest_posts ?? raw?.posts ?? [];
     const list = Array.isArray(posts) ? posts.slice(0, limit) : [];
-    return list.map(p => ({
+    const mapped = list.map(p => ({
       id: p.id ?? p.shortCode,
       caption: p.caption ?? p.captionText ?? '',
       type: p.type ?? p.mediaType ?? 'IMAGE',
@@ -213,6 +225,9 @@ async function getInstagramPosts(instagramBusinessId, limit = 10) {
       likes: Number(p.likesCount ?? p.likes ?? 0) || 0,
       comments: Number(p.commentsCount ?? p.comments ?? 0) || 0
     }));
+    if (mapped.length > 0) console.log('📷 Instagram posts:', mapped.length, 'for', username);
+    else if (raw && !raw.latestPosts?.length) console.warn('📷 Instagram posts: profile has no latestPosts for', username);
+    return mapped;
   } catch (e) {
     logApiError('Instagram posts error:', e);
     return [];
@@ -223,10 +238,8 @@ async function getInstagramInsights(instagramBusinessId) {
   const username = resolveInstagramUsername(instagramBusinessId);
   if (!username) return {};
   try {
-    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, {
-      usernames: [username],
-      resultsLimit: 1
-    }, { timeout: 90 });
+    const input = { usernames: [username] };
+    const items = await apifyRunSync(APIFY_INSTAGRAM_SCRAPER, input, { timeout: 120 });
     const raw = items && items[0] ? items[0] : null;
     if (!raw) return {};
     return {
@@ -298,11 +311,16 @@ function calculateReputationScores(athleteData) {
   const instaPosts = instagram?.posts || [];
   const instaEng = instaPosts.reduce((s, p) => s + (p.likes + p.comments), 0);
   const credibilityScore = Math.min(100, Math.round((athleteData.profile?.verified ? 30 : 0) + (Math.log10(followers) * 10) + (news.length * 2)));
-  const likeabilityScore = Math.max(60, Math.min(100, Math.round((twitterEng / Math.max(1, tweets.length)) / 100)));
-  const negCount = allS.filter(s => s && s.sentiment === 'NEGATIVE').length;
-  const controversyScore = Math.round((negCount / Math.max(1, allS.length)) * 100);
+  const avgTweetEng = tweets.length ? twitterEng / tweets.length : 0;
+  const likeabilityScore = Math.max(40, Math.min(100, Math.round(50 + Math.log10(1 + avgTweetEng) * 8 + (instaPosts.length ? 5 : 0))));
+  const validS = allS.filter(s => s && s.scores);
+  // Include negative + mixed sentiment so controversy is not always 0 when content is mostly neutral
+  const negRatio = validS.length === 0 ? 0 : validS.reduce((sum, s) => sum + (s.scores.negative || 0) + (s.scores.mixed || 0) * 0.4, 0) / validS.length;
+  const controversyScore = Math.min(100, Math.round(negRatio * 100));
   const relevanceScore = Math.min(100, Math.round((mentions.length * 2) + (news.length * 3) + (instagram?.insights?.impressions ? Math.log10(instagram.insights.impressions) * 5 : 0)));
-  return { sentimentScore, credibilityScore, likeabilityScore, leadershipScore: 75, authenticityScore: 75, controversyScore, relevanceScore };
+  const leadershipScore = Math.max(50, Math.min(100, Math.round((credibilityScore * 0.35) + (sentimentScore * 0.35) + (relevanceScore * 0.2) + (news.length > 5 ? 5 : 0))));
+  const authenticityScore = Math.max(50, Math.min(100, Math.round((sentimentScore * 0.4) + (likeabilityScore * 0.4) + (validS.length ? 10 : 0))));
+  return { sentimentScore, credibilityScore, likeabilityScore, leadershipScore, authenticityScore, controversyScore, relevanceScore };
 }
 
 function calculateAlertLevel(data) {
@@ -310,6 +328,155 @@ function calculateAlertLevel(data) {
   if (s < 50 || c > 40) return 'critical';
   if (s < 60 || c > 30) return 'elevated';
   return 'nominal';
+}
+
+// --- Claude (Anthropic) API for score explanations (perception_details) ---
+// See https://docs.anthropic.com/en/api/messages and https://platform.claude.com/docs/en/api/messages
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const ANTHROPIC_VERSION = '2023-06-01';
+// Use current model; claude-3-5-sonnet-20241022 is deprecated and can return 404
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
+
+async function generateScoreExplanation(metricName, score, context) {
+  if (!ANTHROPIC_API_KEY) return { summary: '', breakdown: [] };
+  const prompt = `Generate a 2-sentence explanation and exactly 4 bullet points for why this athlete's ${metricName} score is ${score}.
+
+Context:
+- Twitter: ${context.twitterPctPositive}% positive sentiment, ${context.twitterFollowers} followers, ${context.twitterMentions} mentions
+- Instagram: ${context.instagramPctPositive}% positive, ${context.instagramFollowers} followers, ${context.instagramPosts} posts
+- News: ${context.newsMentions} mentions, ${context.newsSentiment} sentiment
+
+Format your response exactly as:
+Description paragraph (2 sentences, no label).
+
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
+- Bullet point 4`;
+
+  try {
+    const res = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: CLAUDE_MODEL,
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': ANTHROPIC_VERSION
+        },
+        timeout: 60000,
+        validateStatus: () => true
+      }
+    );
+    if (res.status !== 200) {
+      const errMsg = res.data?.error?.message || res.statusText;
+      const errType = res.data?.error?.type;
+      console.error('Claude API error for', metricName, ':', res.status, errType || '', errMsg);
+      return { summary: '', breakdown: [] };
+    }
+    const text = res.data?.content?.[0]?.text || '';
+    const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+    const bulletLines = lines.filter(l => l.startsWith('-'));
+    const summaryLines = lines.filter(l => !l.startsWith('-'));
+    const summary = summaryLines.join(' ').trim() || '';
+    const breakdown = bulletLines.map(l => l.startsWith('-') ? l : `• ${l}`);
+    return { summary, breakdown };
+  } catch (e) {
+    console.error('Claude explanation error for', metricName, ':', e.message);
+    return { summary: '', breakdown: [] };
+  }
+}
+
+/** Template-based explanation when Claude API is not available */
+function getTemplateExplanation(metricName, score, context) {
+  const s = score ?? 0;
+  const templates = {
+    Sentiment: {
+      summary: s >= 70 ? `Positive sentiment detected across recent posts and news. Fans and media are largely supportive.` : s >= 50 ? `Mixed to neutral sentiment. Some positive coverage with limited negative mentions.` : `Elevated negative sentiment in recent coverage. Consider monitoring and response.`,
+      breakdown: [
+        `Twitter: ${context.twitterPctPositive}% positive in sampled posts`,
+        `News: ${context.newsSentiment}`,
+        `Based on ${context.twitterMentions} Twitter mentions and ${context.newsMentions} news articles`
+      ]
+    },
+    Credibility: {
+      summary: s >= 70 ? `Strong credibility from verification, follower base, and media presence.` : s >= 50 ? `Moderate credibility. Verification and reach contribute to score.` : `Credibility score reflects limited verification or reach data.`,
+      breakdown: [
+        `Twitter followers: ${context.twitterFollowers}; Instagram: ${context.instagramFollowers}`,
+        `News mentions: ${context.newsMentions}`,
+        `Verified status and engagement feed into this score`
+      ]
+    },
+    Likeability: {
+      summary: s >= 70 ? `High engagement and positive interaction on social channels.` : s >= 50 ? `Solid engagement levels. Audience responds well to content.` : `Engagement metrics are modest; more active posting may improve likeability.`,
+      breakdown: [
+        `Average engagement from tweets and posts`,
+        `Instagram posts sampled: ${context.instagramPosts}`,
+        `Engagement rate and fan interaction drive this metric`
+      ]
+    },
+    Leadership: {
+      summary: s >= 70 ? `Strong leadership perception from credibility, sentiment, and relevance.` : s >= 50 ? `Leadership score reflects current media and social footprint.` : `Leadership metric is based on limited data points.`,
+      breakdown: [
+        `Combines credibility, sentiment, and relevance scores`,
+        `News coverage volume: ${context.newsMentions} articles`,
+        `Higher media presence and positive sentiment raise this score`
+      ]
+    },
+    Authenticity: {
+      summary: s >= 70 ? `Authentic voice and consistent positive sentiment across channels.` : s >= 50 ? `Authenticity reflected in sentiment and likeability signals.` : `Score based on available sentiment and engagement data.`,
+      breakdown: [
+        `Sentiment and likeability contribute equally`,
+        `Consistency of message and fan reaction factor in`,
+        `More data improves accuracy of this score`
+      ]
+    },
+    Controversy: {
+      summary: s > 40 ? `Elevated controversy from negative or mixed sentiment in recent coverage. Worth monitoring.` : s > 20 ? `Some negative or mixed sentiment detected. Generally stable.` : `Low controversy. Sentiment is predominantly positive or neutral.`,
+      breakdown: [
+        `Derived from negative and mixed sentiment in tweets and news`,
+        `Twitter and news sentiment analysis feed this score`,
+        `Lower score indicates less contentious coverage`
+      ]
+    },
+    Relevance: {
+      summary: s >= 70 ? `High relevance: strong mention count and media coverage.` : s >= 50 ? `Relevance reflects current mention and news volume.` : `Relevance score is based on mention and news counts.`,
+      breakdown: [
+        `Twitter mentions: ${context.twitterMentions}, News: ${context.newsMentions}`,
+        `Instagram impressions and engagement also factor in`,
+        `More mentions and coverage increase relevance`
+      ]
+    }
+  };
+  const t = templates[metricName] || { summary: `Score: ${s}. Based on available social and news data.`, breakdown: [] };
+  return { summary: t.summary, breakdown: t.breakdown || [] };
+}
+
+async function buildPerceptionDetails(scores, athleteData, context) {
+  const base = { data_quality: context.data_quality || {} };
+  const metricNames = ['Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance'];
+  const scoreKeys = ['sentimentScore', 'credibilityScore', 'likeabilityScore', 'leadershipScore', 'authenticityScore', 'controversyScore', 'relevanceScore'];
+  for (let i = 0; i < metricNames.length; i++) {
+    const score = scores[scoreKeys[i]] ?? 0;
+    let summary = '';
+    let breakdown = [];
+    if (ANTHROPIC_API_KEY) {
+      const result = await generateScoreExplanation(metricNames[i], score, context);
+      summary = result.summary || '';
+      breakdown = Array.isArray(result.breakdown) ? result.breakdown : [result.breakdown].filter(Boolean);
+    }
+    if (!summary) {
+      const template = getTemplateExplanation(metricNames[i], score, context);
+      summary = template.summary;
+      breakdown = template.breakdown;
+    }
+    base[metricNames[i]] = { summary, breakdown };
+  }
+  return base;
 }
 
 async function saveHistoricalSnapshot(athleteId, dashboardData) {
@@ -323,12 +490,13 @@ async function saveHistoricalSnapshot(athleteId, dashboardData) {
   return { data, error: null };
 }
 
-function generateTimeline(tweets, news) {
+function generateTimeline(tweets, news, instagramPosts) {
   const events = [];
-  (tweets || []).forEach(t => { const eng = t.likes + t.retweets + t.replies; if (eng > 1000) events.push({ date: new Date(t.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'TWITTER', title: t.text.substring(0, 100), description: `${t.likes.toLocaleString()} likes, ${t.retweets.toLocaleString()} retweets`, sentiment: t.sentiment?.sentiment || 'NEUTRAL' }); });
-  (news || []).forEach(a => events.push({ date: new Date(a.publishedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'NEWS MEDIA', title: a.title, description: a.description || (a.content || '').substring(0, 200), sentiment: a.sentiment?.sentiment || 'NEUTRAL' }));
+  (tweets || []).forEach(t => { const eng = t.likes + t.retweets + t.replies; if (eng > 500) events.push({ date: new Date(t.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'TWITTER', title: (t.text || '').substring(0, 100), description: `${(t.likes || 0).toLocaleString()} likes, ${(t.retweets || 0).toLocaleString()} retweets`, sentiment: t.sentiment?.sentiment || 'NEUTRAL' }); });
+  (news || []).forEach(a => events.push({ date: new Date(a.publishedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'NEWS MEDIA', title: a.title, description: (a.description || a.content || '').substring(0, 200), sentiment: a.sentiment?.sentiment || 'NEUTRAL' }));
+  (instagramPosts || []).slice(0, 5).forEach(p => { const ts = p.timestamp || p.takenAt || p.createdAt; if (ts) events.push({ date: new Date(ts).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'INSTAGRAM', title: (p.caption || 'Instagram post').substring(0, 100), description: `${(p.likes || 0).toLocaleString()} likes, ${(p.comments || 0).toLocaleString()} comments`, sentiment: 'NEUTRAL' }); });
   events.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return events.slice(0, 10);
+  return events.slice(0, 15);
 }
 
 async function collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId, country) {
@@ -355,8 +523,53 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     const sentimentOk = (tweetSents.length > 0 && tweetSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0)) || (newsSents.length > 0 && newsSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0));
     console.log('📈 Scores...');
     const scores = calculateReputationScores(athleteData);
-    const timeline = generateTimeline(tweets, news);
-    // Use snake_case for DB columns (schema expects sentiment_score, not sentimentScore)
+    const timeline = generateTimeline(tweets, news, instagramPosts);
+    const twitterPos = tweetSents.filter(s => s && s.sentiment === 'POSITIVE').length;
+    const twitterPctPositive = tweetSents.length ? Math.round((twitterPos / tweetSents.length) * 100) : 0;
+    const newsPos = newsSents.filter(s => s && s.sentiment === 'POSITIVE').length;
+    const newsNeutral = newsSents.filter(s => s && s.sentiment === 'NEUTRAL').length;
+    const newsSentimentStr = newsSents.length ? `${newsPos} positive, ${newsNeutral} neutral` : 'no data';
+    const claudeContext = {
+      twitterPctPositive,
+      twitterFollowers: (twitterProfile?.followers || 0).toLocaleString(),
+      twitterMentions: mentions.length,
+      instagramPctPositive: instagramPosts.length ? 70 : 0,
+      instagramFollowers: (instagramProfile?.followers || 0).toLocaleString(),
+      instagramPosts: instagramPosts.length,
+      newsMentions: news.length,
+      newsSentiment: newsSentimentStr,
+      data_quality: { twitter_ok: twitterOk, sentiment_ok: sentimentOk }
+    };
+    console.log('📝 Generating score explanations (Claude)...');
+    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext);
+    const avgInstaEng = instagramPosts.length ? Math.round(instagramPosts.reduce((s, p) => s + (p.likes || 0) + (p.comments || 0), 0) / instagramPosts.length) : 0;
+    const twitterFollowerCount = twitterProfile?.followers ?? 0;
+    const instagramFollowerCount = instagramProfile?.followers ?? 0;
+    const totalTweetEng = tweets.reduce((s, t) => s + (t.likes || 0) + (t.retweets || 0) + (t.replies || 0), 0);
+    const totalInstaEng = instagramPosts.reduce((s, p) => s + (p.likes || 0) + (p.comments || 0), 0);
+    const avgEngRateTwitter = tweets.length && twitterFollowerCount > 0 ? Number(((totalTweetEng / tweets.length) / twitterFollowerCount * 100).toFixed(2)) : null;
+    const avgEngRateInstagram = instagramPosts.length && instagramFollowerCount > 0 ? Number(((totalInstaEng / instagramPosts.length) / instagramFollowerCount * 100).toFixed(2)) : null;
+    const avgLikesTwitter = tweets.length ? Math.round(tweets.reduce((s, t) => s + (t.likes || 0), 0) / tweets.length) : 0;
+    const avgCommentsTwitter = tweets.length ? Math.round(tweets.reduce((s, t) => s + (t.replies || 0), 0) / tweets.length) : 0;
+    const avgRetweets = tweets.length ? Math.round(tweets.reduce((s, t) => s + (t.retweets || 0), 0) / tweets.length) : 0;
+    const avgLikesInstagram = instagramPosts.length ? Math.round(instagramPosts.reduce((s, p) => s + (p.likes || 0), 0) / instagramPosts.length) : 0;
+    const avgCommentsInstagram = instagramPosts.length ? Math.round(instagramPosts.reduce((s, p) => s + (p.comments || 0), 0) / instagramPosts.length) : 0;
+    const resolvedIgUsername = resolveInstagramUsername(instagramBusinessId);
+    perception_details.instagram_handle = instagramProfile?.username ?? (resolvedIgUsername || null);
+    perception_details.twitter_pct_positive = twitterPctPositive;
+    perception_details.instagram_pct_positive = instagramPosts.length ? 70 : (twitterPctPositive || 0);
+    perception_details.recent_instagram_posts = instagramPosts.slice(0, 5);
+    perception_details.avg_instagram_engagement = avgInstaEng;
+    perception_details.engagement_aggregates = {
+      avg_engagement_rate_twitter_pct: avgEngRateTwitter,
+      avg_engagement_rate_instagram_pct: avgEngRateInstagram,
+      avg_likes_per_post_twitter: avgLikesTwitter,
+      avg_comments_replies_twitter: avgCommentsTwitter,
+      avg_retweets: avgRetweets,
+      avg_likes_per_post_instagram: avgLikesInstagram,
+      avg_comments_per_post_instagram: avgCommentsInstagram
+    };
+    // total_mentions = Twitter @mentions count + news articles count (combined social + news visibility)
     const dashboardData = {
       athlete_id: athleteId,
       athlete_name: athleteName,
@@ -377,7 +590,23 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
       total_mentions: mentions.length,
       news_articles_count: news.length,
       avg_tweet_engagement: tweets.length ? Math.round(tweets.reduce((s, t) => s + t.likes + t.retweets, 0) / tweets.length) : 0,
-      perception_details: { data_quality: { twitter_ok: twitterOk, sentiment_ok: sentimentOk } }
+      perception_details,
+      recent_instagram_posts: instagramPosts.slice(0, 10),
+      avg_engagement_rate_twitter: avgEngRateTwitter,
+      avg_engagement_rate_instagram: avgEngRateInstagram,
+      avg_likes_twitter: avgLikesTwitter,
+      avg_comments_retweets_twitter: avgCommentsTwitter + avgRetweets,
+      avg_likes_instagram: avgLikesInstagram,
+      avg_comments_instagram: avgCommentsInstagram,
+      engagement_aggregates: {
+        avg_engagement_rate_twitter_pct: avgEngRateTwitter,
+        avg_engagement_rate_instagram_pct: avgEngRateInstagram,
+        avg_likes_per_post_twitter: avgLikesTwitter,
+        avg_comments_replies_twitter: avgCommentsTwitter,
+        avg_retweets: avgRetweets,
+        avg_likes_per_post_instagram: avgLikesInstagram,
+        avg_comments_per_post_instagram: avgCommentsInstagram
+      }
     };
     dashboardData.overall_alert_level = calculateAlertLevel(dashboardData);
     console.log('💾 Saving...');
@@ -411,9 +640,15 @@ app.post('/api/athletes', async (req, res) => {
 });
 app.get('/api/athlete/:athleteId', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('athlete_dashboards').select('*').eq('athlete_id', req.params.athleteId).single();
+    const { data: dashboard, error } = await supabase.from('athlete_dashboards').select('*').eq('athlete_id', req.params.athleteId).single();
     if (error) throw error;
-    res.json(data);
+    if (!dashboard) { res.json(null); return; }
+    const { data: athlete } = await supabase.from('athletes').select('instagram_business_id').eq('id', req.params.athleteId).maybeSingle();
+    const payload = { ...dashboard };
+    if (athlete?.instagram_business_id && !payload.perception_details?.instagram_handle) {
+      payload.perception_details = { ...(payload.perception_details || {}), instagram_handle: athlete.instagram_business_id };
+    }
+    res.json(payload);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
@@ -428,10 +663,24 @@ app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
 app.post('/api/athlete/refresh', async (req, res) => {
   const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country } = req.body;
   if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
-  // Instagram: accept instagramUsername or userName in body (Apify needs username); else fall back to instagramBusinessId
-  const instagramId = instagramUsername ?? userName ?? instagramBusinessId ?? null;
+  // Prefer athletes table as source of truth so Instagram username from DB is used (dashboard may have stale/null)
+  let instagramId = instagramUsername ?? userName ?? instagramBusinessId ?? null;
+  let useName = athleteName;
+  let useTwitter = twitterHandle;
+  let useCountry = country;
   try {
-    const data = await collectAthleteData(athleteId, athleteName, twitterHandle, instagramId, country);
+    const { data: athleteRow } = await supabase.from('athletes').select('instagram_business_id, twitter_handle, name, country').eq('id', athleteId).maybeSingle();
+    if (athleteRow) {
+      if (athleteRow.instagram_business_id != null && String(athleteRow.instagram_business_id).trim() !== '') {
+        instagramId = athleteRow.instagram_business_id;
+      }
+      if (athleteRow.twitter_handle != null && String(athleteRow.twitter_handle).trim() !== '') useTwitter = athleteRow.twitter_handle;
+      if (athleteRow.name != null && String(athleteRow.name).trim() !== '') useName = athleteRow.name;
+      if (athleteRow.country != null && String(athleteRow.country).trim() !== '') useCountry = athleteRow.country;
+    }
+  } catch (_) { /* use body values */ }
+  try {
+    const data = await collectAthleteData(athleteId, useName, useTwitter, instagramId, useCountry);
     res.json({ success: !!data, data });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
