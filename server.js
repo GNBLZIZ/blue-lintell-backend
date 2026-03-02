@@ -310,12 +310,36 @@ function calculateReputationScores(athleteData) {
   const twitterEng = (tweets || []).reduce((s, t) => s + (t.likes + t.retweets + t.replies), 0);
   const instaPosts = instagram?.posts || [];
   const instaEng = instaPosts.reduce((s, p) => s + (p.likes + p.comments), 0);
-  const credibilityScore = Math.min(100, Math.round((athleteData.profile?.verified ? 30 : 0) + (Math.log10(followers) * 10) + (news.length * 2)));
+  
+  // RECALIBRATED CREDIBILITY SCORE (more discriminating)
+  // Components: verification (15), follower reach (max 40), news quality (max 25), engagement quality (max 20)
+  const verificationBonus = athleteData.profile?.verified ? 15 : 0;
+  
+  // Follower reach: logarithmic but capped at 40
+  const followerScore = Math.min(40, Math.log10(followers) * 8);
+  
+  // News quality: weight by count but cap at 25 (quality over quantity)
+  const newsScore = Math.min(25, news.length * 2.5);
+  
+  // Engagement quality: high follower count but low engagement = penalty
+  const totalFollowers = followers + (instagram?.profile?.followers || 0);
+  const totalEngagement = twitterEng + instaEng;
+  const totalPosts = tweets.length + instaPosts.length;
+  const avgEngagement = totalPosts > 0 ? totalEngagement / totalPosts : 0;
+  const engagementRate = totalFollowers > 0 ? (avgEngagement / totalFollowers) * 100 : 0;
+  const engagementScore = Math.min(20, engagementRate * 400); // 0.05% = 20 points (good engagement)
+  
+  // Controversy penalty: high controversy reduces credibility
+  const validS = allS.filter(s => s && s.scores);
+  const negRatio = validS.length === 0 ? 0 : validS.reduce((sum, s) => sum + (s.scores.negative || 0) + (s.scores.mixed || 0) * 0.4, 0) / validS.length;
+  const controversyPenalty = Math.round(negRatio * 15); // Up to -15 points for high controversy
+  
+  const credibilityScore = Math.max(30, Math.min(100, Math.round(
+    verificationBonus + followerScore + newsScore + engagementScore - controversyPenalty
+  )));
+  
   const avgTweetEng = tweets.length ? twitterEng / tweets.length : 0;
   const likeabilityScore = Math.max(40, Math.min(100, Math.round(50 + Math.log10(1 + avgTweetEng) * 8 + (instaPosts.length ? 5 : 0))));
-  const validS = allS.filter(s => s && s.scores);
-  // Include negative + mixed sentiment so controversy is not always 0 when content is mostly neutral
-  const negRatio = validS.length === 0 ? 0 : validS.reduce((sum, s) => sum + (s.scores.negative || 0) + (s.scores.mixed || 0) * 0.4, 0) / validS.length;
   const controversyScore = Math.min(100, Math.round(negRatio * 100));
   const relevanceScore = Math.min(100, Math.round((mentions.length * 2) + (news.length * 3) + (instagram?.insights?.impressions ? Math.log10(instagram.insights.impressions) * 5 : 0)));
   const leadershipScore = Math.max(50, Math.min(100, Math.round((credibilityScore * 0.35) + (sentimentScore * 0.35) + (relevanceScore * 0.2) + (news.length > 5 ? 5 : 0))));
@@ -375,6 +399,7 @@ CRITICAL STYLE REQUIREMENTS:
 4. Extract SPECIFIC events with dates from the data above
 5. Use "the athlete" not "the player's" or possessive forms
 6. Lead with insight, not score definition
+7. USE BRITISH ENGLISH: realise (not realize), analyse (not analyze), whilst (not while), favour (not favor), match (not game for football)
 
 FORMAT (output exactly this way):
 
@@ -509,6 +534,7 @@ STYLE REQUIREMENTS:
 - Write like you're briefing a client who pays £12K/month for this intelligence
 - Don't say "the athlete should consider" - say "Accelerate contract resolution"
 - Don't be cautious - be direct and authoritative
+- USE BRITISH ENGLISH: realise (not realize), analyse (not analyze), whilst (not while), favour (not favor), match (not game for football), utilise (not utilize)
 
 GOOD EXAMPLE:
 The athlete is navigating a critical reputation inflection point. With contract talks unresolved and performance scrutiny intensifying following the Everton defeat, the next 4-6 weeks will define whether the Newcastle legacy ends on positive or contentious terms. Current sentiment remains salvageable (67/100) but requires proactive narrative management. Zero positive news stories in the past week creates vulnerability.
