@@ -311,15 +311,15 @@ function calculateReputationScores(athleteData) {
   const instaPosts = instagram?.posts || [];
   const instaEng = instaPosts.reduce((s, p) => s + (p.likes + p.comments), 0);
   
-  // RECALIBRATED CREDIBILITY SCORE (more discriminating)
-  // Components: verification (15), follower reach (max 40), news quality (max 25), engagement quality (max 20)
-  const verificationBonus = athleteData.profile?.verified ? 15 : 0;
+  // RECALIBRATED CREDIBILITY SCORE (more discriminating) - AGGRESSIVE CAPS
+  // Components: verification (10), follower reach (max 30), news quality (max 20), engagement quality (max 15)
+  const verificationBonus = athleteData.profile?.verified ? 10 : 0;
   
-  // Follower reach: logarithmic but capped at 40
-  const followerScore = Math.min(40, Math.log10(followers) * 8);
+  // Follower reach: logarithmic but capped at 30 (reduced from 40)
+  const followerScore = Math.min(30, Math.log10(followers) * 8);
   
-  // News quality: weight by count but cap at 25 (quality over quantity)
-  const newsScore = Math.min(25, news.length * 2.5);
+  // News quality: weight by count but cap at 20 (reduced from 25)
+  const newsScore = Math.min(20, news.length * 2.5);
   
   // Engagement quality: high follower count but low engagement = penalty
   const totalFollowers = followers + (instagram?.profile?.followers || 0);
@@ -327,12 +327,12 @@ function calculateReputationScores(athleteData) {
   const totalPosts = tweets.length + instaPosts.length;
   const avgEngagement = totalPosts > 0 ? totalEngagement / totalPosts : 0;
   const engagementRate = totalFollowers > 0 ? (avgEngagement / totalFollowers) * 100 : 0;
-  const engagementScore = Math.min(20, engagementRate * 400); // 0.05% = 20 points (good engagement)
+  const engagementScore = Math.min(15, engagementRate * 400); // 0.0375% = 15 points (reduced from 20)
   
-  // Controversy penalty: high controversy reduces credibility
+  // Controversy penalty: high controversy reduces credibility (increased penalty)
   const validS = allS.filter(s => s && s.scores);
   const negRatio = validS.length === 0 ? 0 : validS.reduce((sum, s) => sum + (s.scores.negative || 0) + (s.scores.mixed || 0) * 0.4, 0) / validS.length;
-  const controversyPenalty = Math.round(negRatio * 15); // Up to -15 points for high controversy
+  const controversyPenalty = Math.round(negRatio * 20); // Up to -20 points for high controversy (increased from -15)
   
   const credibilityScore = Math.max(30, Math.min(100, Math.round(
     verificationBonus + followerScore + newsScore + engagementScore - controversyPenalty
