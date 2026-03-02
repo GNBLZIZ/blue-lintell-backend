@@ -366,37 +366,44 @@ STATISTICS:
 - Instagram: ${context.instagramPctPositive}% positive, ${context.instagramFollowers} followers, ${context.instagramPosts} posts
 - News: ${context.newsMentions} articles total, ${context.newsSentiment} sentiment breakdown
 
-TASK: Generate a compelling explanation for why this ${metricName} score is ${score}.
+TASK: Write a compelling, natural explanation for this ${metricName} score of ${score}.
 
-CRITICAL REQUIREMENTS:
-1. Extract SPECIFIC events, achievements, or incidents from the actual headlines and tweets above
-2. Include DATES when events are mentioned (e.g., "February 2026: Transfer speculation")
-3. Reference ACTUAL achievements from the data (e.g., "54 England caps", "La Liga champion")
-4. Quote REAL statements or headlines when relevant (e.g., 'Manager says: "Key player"')
-5. Name SPECIFIC controversies or incidents if present (e.g., "Fan confrontation after loss")
-6. DO NOT use generic language like "strong social media presence" - be SPECIFIC
-7. If limited data, say so directly rather than inventing generic statements
+CRITICAL STYLE REQUIREMENTS:
+1. Write in NATURAL PROSE - like a sports analyst, not an academic report
+2. NO markdown formatting (no **, no ##, no labels)
+3. Be PUNCHY and DIRECT - short, impactful sentences
+4. Extract SPECIFIC events with dates from the data above
+5. Use "the athlete" not "the player's" or possessive forms
+6. Lead with insight, not score definition
 
-FORMAT:
-Summary: [2 sentences explaining what drives this score - be specific about actual events/achievements]
+FORMAT (output exactly this way):
 
-Breakdown (exactly 4 bullet points):
-- [Specific detail with evidence from headlines/tweets above]
-- [Another specific achievement, stat, or incident]
-- [Direct quote or concrete example from the data]
-- [Supporting evidence with actual numbers or events]
+[2-3 sentences of natural prose explaining what drives this score. Be specific about actual events. No labels, no bold text, just flowing sentences.]
 
-GOOD EXAMPLE:
-- February 2026: Transfer speculation to Barcelona dominates headlines (8 articles)
-- 54 England caps - established international recognition and credibility
-- Manager quote: "One of the best right-backs in the Premier League"
-- Recent tweet celebrating trophy win received 15K likes (highest engagement this month)
+• [Specific detail with date/evidence - keep it punchy, under 25 words]
+• [Another specific achievement or incident - direct and clear]
+• [Concrete example with numbers - no fluff]
+• [Supporting evidence - actual event or stat]
+
+GOOD EXAMPLE (COPY THIS STYLE):
+The athlete's Sentiment score of 67 reflects moderately positive perception driven by strong social media engagement but tempered by neutral news coverage. Recent contract uncertainty and match disappointments prevent the score reaching elite territory, though loyal fanbase provides solid foundation.
+
+• March 2026: Contract talks dominate headlines as two articles signal unresolved future at Newcastle
+• February 28 defeat vs Everton (3/10 player rating) damages reputation narrative
+• Zero positive stories in past week - 8 neutral articles fail to reinforce reputation
+• Twitter shows 80% positive sentiment with contract tweet earning 28,951 likes
 
 BAD EXAMPLE (DO NOT DO THIS):
-- Strong social media engagement
-- Positive media coverage
-- Good relationship with fans
-- Consistent performance levels`;
+**Summary:** Kieran Trippier's sentiment score of 67/100 reflects a player whose social media presence remains largely positive but whose news cycle is dominated by contract uncertainty...
+
+**Breakdown:**
+- **March 1, 2026: Contract uncertainty dominates the news cycle** — Two headlines...
+
+CRITICAL: 
+- NO bold text (**), NO markdown, NO section labels
+- Write like a professional analyst briefing a client
+- Keep bullets under 25 words each
+- Be specific with dates, stats, and actual events from the data above`;
 
   try {
     const res = await axios.post(
@@ -423,15 +430,169 @@ BAD EXAMPLE (DO NOT DO THIS):
       return { summary: '', breakdown: [] };
     }
     const text = res.data?.content?.[0]?.text || '';
-    const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
-    const bulletLines = lines.filter(l => l.startsWith('-'));
-    const summaryLines = lines.filter(l => !l.startsWith('-'));
+    // Remove any markdown bold/italic that Claude might still use
+    const cleanText = text.replace(/\*\*/g, '').replace(/\*/g, '');
+    const lines = cleanText.split('\n').map(s => s.trim()).filter(Boolean);
+    // Accept both • and - as bullet markers
+    const bulletLines = lines.filter(l => l.startsWith('•') || l.startsWith('-'));
+    const summaryLines = lines.filter(l => !l.startsWith('•') && !l.startsWith('-'));
     const summary = summaryLines.join(' ').trim() || '';
-    const breakdown = bulletLines.map(l => l.startsWith('-') ? l : `• ${l}`);
+    // Ensure bullets start with • for consistency
+    const breakdown = bulletLines.map(l => {
+      const cleaned = l.replace(/^[•\-]\s*/, '');
+      return `• ${cleaned}`;
+    });
     return { summary, breakdown };
   } catch (e) {
     console.error('Claude explanation error for', metricName, ':', e.message);
     return { summary: '', breakdown: [] };
+  }
+}
+
+/** Generate strategic intelligence report with risks, recommendations, and watch-outs */
+async function generateStrategicIntelligence(scores, athleteData, context) {
+  if (!ANTHROPIC_API_KEY) return null;
+  
+  const newsHeadlines = (context.recentNewsHeadlines || []).slice(0, 8).map((article, i) => 
+    `${i + 1}. "${article.title}" (${article.source}, ${article.date})`
+  ).join('\n') || 'No recent news articles available.';
+  
+  const recentTweets = (context.recentTweets || []).slice(0, 5).map((tweet, i) => 
+    `${i + 1}. "${tweet.text}" (${tweet.likes} likes, ${tweet.retweets} retweets, ${tweet.date})`
+  ).join('\n') || 'No recent tweets available.';
+
+  const prompt = `You are an elite athlete reputation intelligence advisor providing strategic analysis.
+
+ATHLETE REPUTATION SCORES:
+- Sentiment: ${scores.sentimentScore}/100
+- Credibility: ${scores.credibilityScore}/100
+- Likeability: ${scores.likeabilityScore}/100
+- Leadership: ${scores.leadershipScore}/100
+- Authenticity: ${scores.authenticityScore}/100
+- Controversy: ${scores.controversyScore}/100
+- Relevance: ${scores.relevanceScore}/100
+
+RECENT NEWS HEADLINES (Last 7 days):
+${newsHeadlines}
+
+RECENT SOCIAL MEDIA (Last 7 days):
+${recentTweets}
+
+STATISTICS:
+- Twitter: ${context.twitterPctPositive}% positive, ${context.twitterFollowers} followers, ${context.twitterMentions} mentions
+- Instagram: ${context.instagramPctPositive}% positive, ${context.instagramFollowers} followers, ${context.instagramPosts} posts
+- News: ${context.newsMentions} articles, ${context.newsSentiment}
+
+TASK: Provide strategic intelligence analysis for this athlete's reputation.
+
+YOU ARE NOT A DATA REPORTER. You are a strategic advisor helping protect and enhance an elite athlete's reputation. Write with authority and insight.
+
+OUTPUT FORMAT (no labels, no markdown, natural sections separated by blank lines):
+
+[STRATEGIC OVERVIEW - 3-4 sentences]
+Assess the athlete's current reputation position. Identify critical inflection points or vulnerabilities. Reference specific events from the headlines. Be direct about what's working and what's at risk.
+
+[KEY RISKS - 3-4 bullet points with •]
+Identify specific reputation threats based on actual headlines and scores. Each risk should be actionable and time-bound. Reference actual events. Be specific about what could escalate.
+
+[IMMEDIATE RECOMMENDATIONS - 4-5 bullet points with •]
+Provide tactical actions the athlete/team should take in next 7-14 days. Be specific and actionable. Reference actual opportunities in the data. Prioritize by urgency.
+
+[WATCH-OUTS - 3-4 bullet points with •]
+Flag early warning signals that need monitoring. Reference upcoming events or trends that could shift sentiment. Be specific about timing and triggers.
+
+STYLE REQUIREMENTS:
+- NO markdown (no **, no labels, no headers)
+- Write in natural flowing prose for overview
+- Bullets should be punchy, under 30 words
+- Be SPECIFIC - use actual dates, events, numbers from headlines
+- Write like you're briefing a client who pays £12K/month for this intelligence
+- Don't say "the athlete should consider" - say "Accelerate contract resolution"
+- Don't be cautious - be direct and authoritative
+
+GOOD EXAMPLE:
+The athlete is navigating a critical reputation inflection point. With contract talks unresolved and performance scrutiny intensifying following the Everton defeat, the next 4-6 weeks will define whether the Newcastle legacy ends on positive or contentious terms. Current sentiment remains salvageable (67/100) but requires proactive narrative management. Zero positive news stories in the past week creates vulnerability.
+
+• Contract stalemate narrative: Two articles on March 1 signal prolonged uncertainty - risk of "unwanted player" framing if not resolved quickly
+• Performance criticism escalation: 3/10 rating provides ammunition for critics; another poor showing could trigger sustained negative cycle
+• Transfer speculation toxicity: Arsenal interest could polarize fanbase between those wanting departure vs. defending legacy
+
+• Accelerate contract resolution (public or private) to eliminate uncertainty as story angle before next match
+• Proactive positive content: Share training footage, community work, or behind-scenes to counter performance narrative within 48 hours
+• Leverage Twitter goodwill: 80% positive sentiment and 28K-like contract tweet show fanbase supportive - engage directly this week
+• Media management: Secure positive feature placement to balance neutral-heavy news cycle (0/10 positive stories problematic)
+• Performance bounce-back critical: Strong showing in next match (within 7 days) can shift narrative immediately
+
+• Newcastle's next match result - another loss magnifies scrutiny exponentially
+• Contract deadline approaching - silence becomes story itself within 14 days
+• Arsenal transfer rumors escalating - could shift sentiment rapidly if new reports emerge
+• Fan sentiment shift: Currently strong (80% positive) but fragile given performance concerns - monitor Twitter tone after next match
+
+BAD EXAMPLE (DO NOT DO THIS):
+**Strategic Overview:**
+The athlete's reputation scores indicate a mixed picture with some areas of strength...
+
+**Key Risks:**
+- **Negative media coverage** - Some recent articles have been critical
+- **Performance concerns** - Scores could be affected by poor results`;
+
+  try {
+    const res = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: CLAUDE_MODEL,
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': ANTHROPIC_VERSION
+        },
+        timeout: 60000,
+        validateStatus: () => true
+      }
+    );
+    if (res.status !== 200) {
+      console.error('Claude strategic intelligence error:', res.status, res.data?.error?.type);
+      return null;
+    }
+    
+    const text = res.data?.content?.[0]?.text || '';
+    const cleanText = text.replace(/\*\*/g, '').replace(/\*/g, '');
+    
+    // Split into sections by double newlines
+    const sections = cleanText.split('\n\n').map(s => s.trim()).filter(Boolean);
+    
+    // First section is overview, rest contain bullets
+    const overview = sections[0] || '';
+    const bulletSections = sections.slice(1);
+    
+    // Parse bullet sections
+    const parseSection = (text) => {
+      return text.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.startsWith('•') || line.startsWith('-'))
+        .map(line => {
+          const cleaned = line.replace(/^[•\-]\s*/, '');
+          return `• ${cleaned}`;
+        });
+    };
+    
+    const risks = parseSection(bulletSections[0] || '');
+    const recommendations = parseSection(bulletSections[1] || '');
+    const watchouts = parseSection(bulletSections[2] || '');
+    
+    return {
+      strategic_overview: overview,
+      key_risks: risks,
+      immediate_recommendations: recommendations,
+      watch_outs: watchouts
+    };
+  } catch (e) {
+    console.error('Strategic intelligence generation error:', e.message);
+    return null;
   }
 }
 
@@ -520,6 +681,16 @@ async function buildPerceptionDetails(scores, athleteData, context) {
     }
     base[metricNames[i]] = { summary, breakdown };
   }
+  
+  // Generate strategic intelligence report
+  if (ANTHROPIC_API_KEY) {
+    console.log('📋 Generating strategic intelligence...');
+    const strategicIntel = await generateStrategicIntelligence(scores, athleteData, context);
+    if (strategicIntel) {
+      base.strategic_intelligence = strategicIntel;
+    }
+  }
+  
   return base;
 }
 
