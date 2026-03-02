@@ -464,44 +464,106 @@ export default function AthleteDetail() {
 
       {/* INTELLIGENCE TAB */}
       {activeTab === 'intelligence' && (
-        <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Overall perception summary</h3>
-          <p style={{ lineHeight: 1.7, color: '#e2e8f0' }}>
-            {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}). Twitter and Instagram follower counts and news mentions feed into these scores. Click each score card in the Overview tab for detailed breakdowns.`}
-          </p>
-          <h4 style={{ margin: '1.5rem 0 0.75rem', color: COLORS.gold, fontSize: '1rem' }}>Key metrics</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-            {pd.twitter_pct_positive != null && (
-              <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{pd.twitter_pct_positive}%</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Positive sentiment Twitter/X</div>
-              </div>
-            )}
-            {pd.instagram_pct_positive != null && (
-              <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{pd.instagram_pct_positive}%</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Positive sentiment Instagram</div>
-              </div>
-            )}
-            <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{formatFollowers(dashboard.twitter_followers)}</div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Twitter followers</div>
+        <>
+          {/* Strategic Intelligence Section */}
+          {pd.strategic_intelligence && (
+            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold, fontSize: '1.25rem' }}>Strategic Intelligence</h3>
+              
+              {/* Strategic Overview */}
+              {pd.strategic_intelligence.strategic_overview && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Strategic Overview</h4>
+                  <p style={{ lineHeight: 1.7, color: '#cbd5e1', margin: 0 }}>
+                    {pd.strategic_intelligence.strategic_overview}
+                  </p>
+                </div>
+              )}
+
+              {/* Key Risks */}
+              {pd.strategic_intelligence.key_risks?.length > 0 && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Key Risks</h4>
+                  <div style={{ background: `${COLORS.danger}10`, border: `1px solid ${COLORS.danger}40`, borderRadius: 8, padding: '1rem' }}>
+                    {pd.strategic_intelligence.key_risks.map((risk, i) => (
+                      <div key={i} style={{ color: '#fca5a5', marginBottom: i < pd.strategic_intelligence.key_risks.length - 1 ? '0.5rem' : 0, lineHeight: 1.6 }}>
+                        {risk}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Immediate Recommendations */}
+              {pd.strategic_intelligence.immediate_recommendations?.length > 0 && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Immediate Recommendations</h4>
+                  <div style={{ background: `${COLORS.success}10`, border: `1px solid ${COLORS.success}40`, borderRadius: 8, padding: '1rem' }}>
+                    {pd.strategic_intelligence.immediate_recommendations.map((rec, i) => (
+                      <div key={i} style={{ color: '#86efac', marginBottom: i < pd.strategic_intelligence.immediate_recommendations.length - 1 ? '0.5rem' : 0, lineHeight: 1.6 }}>
+                        {rec}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Watch-Outs */}
+              {pd.strategic_intelligence.watch_outs?.length > 0 && (
+                <div>
+                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Watch-Outs</h4>
+                  <div style={{ background: `${COLORS.warning}10`, border: `1px solid ${COLORS.warning}40`, borderRadius: 8, padding: '1rem' }}>
+                    {pd.strategic_intelligence.watch_outs.map((watch, i) => (
+                      <div key={i} style={{ color: '#fcd34d', marginBottom: i < pd.strategic_intelligence.watch_outs.length - 1 ? '0.5rem' : 0, lineHeight: 1.6 }}>
+                        {watch}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{formatFollowers(dashboard.instagram_followers)}</div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Instagram followers</div>
+          )}
+
+          {/* Existing Intelligence Summary */}
+          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Overall perception summary</h3>
+            <p style={{ lineHeight: 1.7, color: '#e2e8f0' }}>
+              {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}). Twitter and Instagram follower counts and news mentions feed into these scores. Click each score card in the Overview tab for detailed breakdowns.`}
+            </p>
+            <h4 style={{ margin: '1.5rem 0 0.75rem', color: COLORS.gold, fontSize: '1rem' }}>Key metrics</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              {pd.twitter_pct_positive != null && (
+                <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{pd.twitter_pct_positive}%</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Positive sentiment Twitter/X</div>
+                </div>
+              )}
+              {pd.instagram_pct_positive != null && (
+                <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{pd.instagram_pct_positive}%</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Positive sentiment Instagram</div>
+                </div>
+              )}
+              <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{formatFollowers(dashboard.twitter_followers)}</div>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Twitter followers</div>
+              </div>
+              <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: COLORS.gold }}>{formatFollowers(dashboard.instagram_followers)}</div>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Instagram followers</div>
+              </div>
+            </div>
+            <h4 style={{ margin: '0 0 0.75rem', color: COLORS.gold, fontSize: '1rem' }}>Score summary</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
+              {scores.slice(0, 4).map((s) => (
+                <div key={s.label} style={{ textAlign: 'center', padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{s.value ?? '—'}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>{s.label}</div>
+                </div>
+              ))}
             </div>
           </div>
-          <h4 style={{ margin: '0 0 0.75rem', color: COLORS.gold, fontSize: '1rem' }}>Score summary</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
-            {scores.slice(0, 4).map((s) => (
-              <div key={s.label} style={{ textAlign: 'center', padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{s.value ?? '—'}</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        </>
       )}
 
       {/* Follower summary in header-style card */}
