@@ -340,11 +340,120 @@ function calculateReputationScores(athleteData) {
   
   const avgTweetEng = tweets.length ? twitterEng / tweets.length : 0;
   const likeabilityScore = Math.max(40, Math.min(100, Math.round(50 + Math.log10(1 + avgTweetEng) * 8 + (instaPosts.length ? 5 : 0))));
-  const controversyScore = Math.min(100, Math.round(negRatio * 100));
+  
+  // ENHANCED CONTROVERSY SCORE with brand risk keyword detection
+  
+  // Comprehensive brand risk keywords (organized by category)
+  const brandRiskKeywords = [
+    // Personal life / relationships
+    'divorce', 'divorced', 'divorcing', 'split', 'splits', 'splitting', 'separation', 'separated', 
+    'affair', 'affairs', 'cheating', 'cheated', 'unfaithful', 'infidelity', 'mistress', 
+    'marriage problems', 'marital issues', 'custody battle', 'ex-wife', 'ex-husband', 'breakup',
+    
+    // Sexual / inappropriate associations
+    'onlyfans', 'only fans', 'escort', 'escorts', 'prostitute', 'sex worker', 'call girl',
+    'strip club', 'stripper', 'adult entertainment', 'porn', 'pornography', 'sex scandal',
+    'sexual misconduct', 'sexual harassment', 'inappropriate relationship', 'sex tape',
+    'groped', 'groping', 'sexual assault', 'rape allegation', 'indecent',
+    
+    // Violence / aggression
+    'assault', 'assaulted', 'assaulting', 'attacked', 'attack', 'fight', 'fighting', 'fought',
+    'brawl', 'altercation', 'confrontation', 'violent', 'violence', 'aggressive', 'aggression',
+    'punched', 'kicked', 'hit', 'beaten', 'domestic violence', 'domestic abuse', 'battery',
+    
+    // Legal issues
+    'arrested', 'arrest', 'charged', 'charges', 'court', 'lawsuit', 'sued', 'suing',
+    'legal action', 'prosecution', 'prosecuted', 'trial', 'convicted', 'conviction',
+    'guilty', 'plea deal', 'settlement', 'injunction', 'restraining order', 'police investigation',
+    'criminal charges', 'indicted', 'indictment', 'allegation', 'allegations', 'accused',
+    
+    // Discipline / conduct
+    'banned', 'ban', 'suspension', 'suspended', 'fine', 'fined', 'disciplinary', 'discipline',
+    'misconduct', 'investigation', 'investigated', 'probe', 'inquiry', 'scandal', 'controversy',
+    'inappropriate behaviour', 'inappropriate behavior', 'unprofessional', 'code of conduct',
+    
+    // Substance abuse
+    'drugs', 'drug', 'cocaine', 'cannabis', 'marijuana', 'substance abuse', 'addiction',
+    'overdose', 'rehab', 'rehabilitation', 'drunk', 'drunken', 'intoxicated', 'inebriated',
+    'drink driving', 'drunk driving', 'dui', 'dwi', 'failed drugs test', 'failed drug test',
+    'positive test', 'banned substance', 'performance enhancing', 'doping', 'steroids',
+    
+    // Gambling
+    'gambling', 'gamble', 'betting scandal', 'bet', 'casino', 'poker', 'gambling addiction',
+    'match fixing', 'spot fixing', 'corruption', 'bribery', 'bribes', 'illegal betting',
+    
+    // Financial misconduct
+    'fraud', 'fraudulent', 'tax evasion', 'tax avoidance', 'money laundering', 'bankruptcy',
+    'bankrupt', 'debt', 'financial problems', 'unpaid taxes', 'hmrc investigation',
+    
+    // Discrimination / offensive behavior
+    'racist', 'racism', 'racial abuse', 'discriminat', 'homophobic', 'homophobia',
+    'sexist', 'sexism', 'offensive', 'abusive', 'slur', 'insult', 'hate speech',
+    'islamophobic', 'anti-semitic', 'prejudice', 'bigot', 'xenophobic',
+    
+    // Social media / public behavior
+    'deleted tweet', 'twitter storm', 'social media storm', 'backlash', 'outrage',
+    'apologises', 'apologizes', 'apology', 'sorry for', 'regrets', 'inappropriate post',
+    'offensive tweet', 'controversial post', 'slammed for', 'criticised for', 'criticized for',
+    
+    // Nightlife / partying
+    'nightclub incident', 'nightclub', 'club incident', 'party', 'partying', 'wild night',
+    'booze', 'boozy', 'alcohol', 'alcoholic', 'binge drinking', '3am', '4am',
+    
+    // Crashes / reckless behavior
+    'car crash', 'crash', 'speeding', 'reckless driving', 'dangerous driving', 'road rage',
+    'traffic offence', 'traffic offense', 'driving ban', 'points on licence',
+    
+    // Career misconduct
+    'sacked', 'fired', 'dismissed', 'contract terminated', 'walked out', 'refused to play',
+    'training ground bust-up', 'dressing room row', 'fell out with', 'disciplined by club'
+  ];
+  
+  // Scan news headlines and content for brand risk keywords
+  let brandRiskCount = 0;
+  const brandRiskArticles = [];
+  
+  news.forEach(article => {
+    const headline = (article.title || '').toLowerCase();
+    const description = (article.description || '').toLowerCase();
+    const content = headline + ' ' + description;
+    
+    // Check if any brand risk keyword appears
+    const matchedKeywords = brandRiskKeywords.filter(keyword => 
+      content.includes(keyword.toLowerCase())
+    );
+    
+    if (matchedKeywords.length > 0) {
+      brandRiskCount++;
+      brandRiskArticles.push({
+        title: article.title,
+        keywords: matchedKeywords,
+        date: article.publishedAt
+      });
+    }
+  });
+  
+  // Calculate brand risk penalty (each risky article adds 8 points, max 40 points)
+  const brandRiskPenalty = Math.min(40, brandRiskCount * 8);
+  
+  // Combine sentiment-based controversy with brand risk
+  const baseControversy = Math.round(negRatio * 100);
+  const controversyScore = Math.min(100, baseControversy + brandRiskPenalty);
+  
   const relevanceScore = Math.min(100, Math.round((mentions.length * 2) + (news.length * 3) + (instagram?.insights?.impressions ? Math.log10(instagram.insights.impressions) * 5 : 0)));
   const leadershipScore = Math.max(50, Math.min(100, Math.round((credibilityScore * 0.35) + (sentimentScore * 0.35) + (relevanceScore * 0.2) + (news.length > 5 ? 5 : 0))));
   const authenticityScore = Math.max(50, Math.min(100, Math.round((sentimentScore * 0.4) + (likeabilityScore * 0.4) + (validS.length ? 10 : 0))));
-  return { sentimentScore, credibilityScore, likeabilityScore, leadershipScore, authenticityScore, controversyScore, relevanceScore };
+  
+  return { 
+    sentimentScore, 
+    credibilityScore, 
+    likeabilityScore, 
+    leadershipScore, 
+    authenticityScore, 
+    controversyScore, 
+    relevanceScore,
+    brandRiskArticles // Pass this to context for Claude to reference in explanations
+  };
 }
 
 function calculateAlertLevel(data) {
@@ -401,10 +510,11 @@ Focus on: Consistency in messaging over time, personal brand alignment, transpar
 Distinguish from other scores: Authenticity is about REALNESS and CONSISTENCY, not quality or popularity. Can be authentic but disliked, or inauthentic but popular.
 Key evidence: Consistency in post tone over time, personal vs PR language, genuine moments (family, passion) vs scripted corporate messaging, transparency in difficult moments.`,
 
-    'Controversy': `This metric measures RISK & SCANDALS - negative incidents and reputational damage.
-Focus on: Specific incidents (red cards, fines, confrontations), disciplinary issues, inappropriate content, negative press patterns, risky behaviour.
-Distinguish from other scores: Controversy is about PROBLEMS and RISKS, not general negativity. Specific incidents, not poor performance.
-Key evidence: Disciplinary records, specific incidents with dates, inappropriate social media content, legal issues, pattern of negative behaviour vs isolated incidents.`,
+    'Controversy': `This metric measures RISK & SCANDALS - negative incidents and reputational damage (both on-field AND off-field).
+Focus on: Specific incidents (red cards, fines, confrontations), disciplinary issues, inappropriate content, negative press patterns, risky behaviour, BRAND-DAMAGING PERSONAL LIFE ISSUES (divorces, inappropriate associations, legal troubles, substance issues).
+Distinguish from other scores: Controversy is about PROBLEMS and RISKS, not general negativity. Specific incidents, not poor performance. Includes off-field scandals even if media tone is neutral.
+Key evidence: Disciplinary records, specific incidents with dates, inappropriate social media content, legal issues, personal life scandals (divorce, affairs, nightclub incidents), inappropriate associations (Only Fans models, gambling, substances), pattern of negative behaviour vs isolated incidents.
+CRITICAL: Even neutrally-reported scandals damage brands - "spotted with Only Fans model" is brand-toxic even if not criticized.`,
 
     'Relevance': `This metric measures CULTURAL IMPACT & VISIBILITY - how much the athlete is part of the conversation.
 Focus on: Trending status, transfer speculation, mainstream media attention, cultural crossover (non-sports coverage), meme-ability, social conversation volume.
@@ -414,12 +524,22 @@ Key evidence: Transfer rumour volume, trending topics, non-sports media mentions
 
   const guidance = scoreGuidance[metricName] || 'Analyse this score based on the available data.';
   
+  // Add brand risk information for Controversy score
+  const brandRiskInfo = (metricName === 'Controversy' && context.brandRiskArticles && context.brandRiskArticles.length > 0) 
+    ? `\n\nBRAND RISK ALERTS DETECTED (${context.brandRiskArticles.length} articles with brand-damaging keywords):
+${context.brandRiskArticles.map((article, i) => 
+  `${i + 1}. "${article.title}" - Contains: ${article.keywords.slice(0, 3).join(', ')}${article.keywords.length > 3 ? '...' : ''}`
+).join('\n')}
+
+IMPORTANT: These articles contain keywords associated with brand risk (personal scandals, inappropriate associations, legal issues, substance abuse, etc.) even if the tone appears neutral. Sponsors and brands consider these toxic.`
+    : '';
+  
   const prompt = `You are analyzing reputation data for a professional athlete.
 
 METRIC: ${metricName}
 SCORE: ${score}/100
 
-${guidance}
+${guidance}${brandRiskInfo}
 
 RECENT NEWS HEADLINES (Last 7 days):
 ${newsHeadlines}
@@ -886,7 +1006,9 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
         likes: tweet.likes || 0,
         retweets: tweet.retweets || 0,
         date: tweet.createdAt ? new Date(tweet.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recent'
-      }))
+      })),
+      // Brand risk articles for controversy detection
+      brandRiskArticles: scores.brandRiskArticles || []
     };
     console.log('📝 Generating score explanations (Claude)...');
     const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext);
