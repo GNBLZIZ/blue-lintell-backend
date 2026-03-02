@@ -374,10 +374,52 @@ async function generateScoreExplanation(metricName, score, context) {
     `${i + 1}. "${tweet.text}" (${tweet.likes} likes, ${tweet.retweets} retweets, ${tweet.date})`
   ).join('\n') || 'No recent tweets available.';
   
+  // Score-specific guidance to make each explanation distinct
+  const scoreGuidance = {
+    'Sentiment': `This metric measures EMOTIONAL TONE - how people feel about the athlete.
+Focus on: Positive/negative language in tweets and headlines, fan emotional reactions, praise vs criticism, affectionate vs hostile tone.
+Distinguish from other scores: Sentiment is about FEELINGS, not facts. A high sentiment means people feel warmly; low means they feel negatively.
+Key evidence: Tweet sentiment percentages, emotional language in headlines ("beloved", "disappointing"), fan reaction intensity.`,
+
+    'Credibility': `This metric measures TRUST & AUTHORITY - how believable and authoritative the athlete is perceived.
+Focus on: Verification status, tier-1 media coverage (BBC, Times, Telegraph vs tabloids), expert opinions, institutional recognition, follower quality vs quantity.
+Distinguish from other scores: Credibility is about TRUSTWORTHINESS and INSTITUTIONAL RESPECT, not popularity or likeability.
+Key evidence: Quality of news sources covering them, verified account, engagement rate (shows real vs fake followers), professional achievements.`,
+
+    'Likeability': `This metric measures FAN AFFECTION & APPROACHABILITY - how much people personally like and feel connected to the athlete.
+Focus on: Engagement rates (likes/comments showing active affection), positive interactions, community connection, personal warmth, accessibility.
+Distinguish from other scores: Likeability is about PERSONAL CONNECTION, not performance or authority. Can be liked without being respected, or respected without being liked.
+Key evidence: Like ratios on personal posts, positive comment sentiment, community work mentions, fan testimonials, approachability signals.`,
+
+    'Leadership': `This metric measures INFLUENCE & ON-FIELD AUTHORITY - leadership qualities and team influence.
+Focus on: Team role, captaincy, on-field decision-making, manager/teammate quotes about leadership, critical moment performances, vocal presence.
+Distinguish from other scores: Leadership is about TEAM INFLUENCE and AUTHORITY, not individual popularity or performance stats.
+Key evidence: Captaincy mentions, manager quotes about leadership ("senior voice", "leads by example"), critical moments where they stepped up, team responsibility.`,
+
+    'Authenticity': `This metric measures GENUINE VOICE & CONSISTENCY - whether the athlete appears real vs manufactured.
+Focus on: Consistency in messaging over time, personal brand alignment, transparency, genuine moments vs scripted PR, personal voice vs corporate speak.
+Distinguish from other scores: Authenticity is about REALNESS and CONSISTENCY, not quality or popularity. Can be authentic but disliked, or inauthentic but popular.
+Key evidence: Consistency in post tone over time, personal vs PR language, genuine moments (family, passion) vs scripted corporate messaging, transparency in difficult moments.`,
+
+    'Controversy': `This metric measures RISK & SCANDALS - negative incidents and reputational damage.
+Focus on: Specific incidents (red cards, fines, confrontations), disciplinary issues, inappropriate content, negative press patterns, risky behaviour.
+Distinguish from other scores: Controversy is about PROBLEMS and RISKS, not general negativity. Specific incidents, not poor performance.
+Key evidence: Disciplinary records, specific incidents with dates, inappropriate social media content, legal issues, pattern of negative behaviour vs isolated incidents.`,
+
+    'Relevance': `This metric measures CULTURAL IMPACT & VISIBILITY - how much the athlete is part of the conversation.
+Focus on: Trending status, transfer speculation, mainstream media attention, cultural crossover (non-sports coverage), meme-ability, social conversation volume.
+Distinguish from other scores: Relevance is about VISIBILITY and CULTURAL PRESENCE, not quality or sentiment. Can be relevant for negative reasons.
+Key evidence: Transfer rumour volume, trending topics, non-sports media mentions, social media mention volume, cultural moments beyond football.`
+  };
+
+  const guidance = scoreGuidance[metricName] || 'Analyse this score based on the available data.';
+  
   const prompt = `You are analyzing reputation data for a professional athlete.
 
 METRIC: ${metricName}
 SCORE: ${score}/100
+
+${guidance}
 
 RECENT NEWS HEADLINES (Last 7 days):
 ${newsHeadlines}
@@ -400,6 +442,7 @@ CRITICAL STYLE REQUIREMENTS:
 5. Use "the athlete" not "the player's" or possessive forms
 6. Lead with insight, not score definition
 7. USE BRITISH ENGLISH: realise (not realize), analyse (not analyze), whilst (not while), favour (not favor), match (not game for football)
+8. FOCUS ON THE SPECIFIC EVIDENCE RELEVANT TO THIS METRIC - don't repeat the same points across all scores
 
 FORMAT (output exactly this way):
 
@@ -588,33 +631,85 @@ The athlete's reputation scores indicate a mixed picture with some areas of stre
     const text = res.data?.content?.[0]?.text || '';
     const cleanText = text.replace(/\*\*/g, '').replace(/\*/g, '');
     
-    // Split into sections by double newlines
-    const sections = cleanText.split('\n\n').map(s => s.trim()).filter(Boolean);
+    // More robust parsing: collect all bullets regardless of section breaks
+    const allLines = cleanText.split('\n').map(s => s.trim()).filter(Boolean);
     
-    // First section is overview, rest contain bullets
-    const overview = sections[0] || '';
-    const bulletSections = sections.slice(1);
+    // Find overview (everything before first bullet)
+    const firstBulletIndex = allLines.findIndex(line => line.startsWith('•') || line.startsWith('-'));
+    const overviewLines = firstBulletIndex > 0 ? allLines.slice(0, firstBulletIndex) : [allLines[0] || ''];
+    const overview = overviewLines.join(' ').trim();
     
-    // Parse bullet sections
-    const parseSection = (text) => {
-      return text.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.startsWith('•') || line.startsWith('-'))
-        .map(line => {
-          const cleaned = line.replace(/^[•\-]\s*/, '');
-          return `• ${cleaned}`;
-        });
-    };
+    // Extract all bullets
+    const allBullets = allLines
+      .filter(line => line.startsWith('•') || line.startsWith('-'))
+      .map(line => {
+        const cleaned = line.replace(/^[•\-]\s*/, '');
+        return `• ${cleaned}`;
+      });
     
-    const risks = parseSection(bulletSections[0] || '');
-    const recommendations = parseSection(bulletSections[1] || '');
-    const watchouts = parseSection(bulletSections[2] || '');
+    // Try to intelligently split bullets into sections
+    // Assume roughly equal distribution: first ~1/3 are risks, middle ~1/3 are recommendations, last ~1/3 are watch-outs
+    const totalBullets = allBullets.length;
+    
+    if (totalBullets === 0) {
+      // Fallback: no bullets found
+      return {
+        strategic_overview: overview,
+        key_risks: ['• No specific risks identified from current data'],
+        immediate_recommendations: ['• Continue monitoring social media sentiment and news coverage'],
+        watch_outs: ['• Track any sudden changes in engagement or controversy scores']
+      };
+    }
+    
+    // If we have 10+ bullets, split them intelligently
+    // Otherwise, try to identify sections by content/keywords
+    let risks = [];
+    let recommendations = [];
+    let watchouts = [];
+    
+    if (totalBullets >= 9) {
+      // Assume first ~3-4 are risks, middle ~3-5 are recommendations, last ~3-4 are watch-outs
+      const splitPoint1 = Math.floor(totalBullets / 3);
+      const splitPoint2 = Math.floor((totalBullets * 2) / 3);
+      risks = allBullets.slice(0, splitPoint1);
+      recommendations = allBullets.slice(splitPoint1, splitPoint2);
+      watchouts = allBullets.slice(splitPoint2);
+    } else {
+      // For fewer bullets, try keyword-based assignment
+      for (const bullet of allBullets) {
+        const lower = bullet.toLowerCase();
+        if (lower.includes('risk') || lower.includes('threat') || lower.includes('danger') || 
+            lower.includes('concern') || lower.includes('escalat') || lower.includes('penalty') ||
+            lower.includes('negative') || lower.includes('damag')) {
+          risks.push(bullet);
+        } else if (lower.includes('recommend') || lower.includes('accelerate') || lower.includes('should') ||
+                   lower.includes('leverage') || lower.includes('proactive') || lower.includes('secure') ||
+                   lower.includes('engage') || lower.includes('address')) {
+          recommendations.push(bullet);
+        } else if (lower.includes('watch') || lower.includes('monitor') || lower.includes('track') ||
+                   lower.includes('next') || lower.includes('upcoming') || lower.includes('if ')) {
+          watchouts.push(bullet);
+        } else {
+          // Default: put early bullets in risks, later in recommendations
+          if (risks.length < recommendations.length) {
+            risks.push(bullet);
+          } else {
+            recommendations.push(bullet);
+          }
+        }
+      }
+      
+      // Ensure we have at least 1 in each category
+      if (risks.length === 0) risks.push(allBullets[0] || '• Monitor current reputation metrics');
+      if (recommendations.length === 0) recommendations.push(allBullets[1] || '• Maintain current engagement levels');
+      if (watchouts.length === 0) watchouts.push(allBullets[allBullets.length - 1] || '• Track sentiment changes');
+    }
     
     return {
       strategic_overview: overview,
-      key_risks: risks,
-      immediate_recommendations: recommendations,
-      watch_outs: watchouts
+      key_risks: risks.length > 0 ? risks : ['• No immediate risks detected'],
+      immediate_recommendations: recommendations.length > 0 ? recommendations : ['• Continue current strategy'],
+      watch_outs: watchouts.length > 0 ? watchouts : ['• Monitor ongoing metrics']
     };
   } catch (e) {
     console.error('Strategic intelligence generation error:', e.message);
