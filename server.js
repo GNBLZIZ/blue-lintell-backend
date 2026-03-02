@@ -339,20 +339,64 @@ const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
 
 async function generateScoreExplanation(metricName, score, context) {
   if (!ANTHROPIC_API_KEY) return { summary: '', breakdown: [] };
-  const prompt = `Generate a 2-sentence explanation and exactly 4 bullet points for why this athlete's ${metricName} score is ${score}.
+  
+  // Build actual news headlines (not just counts)
+  const newsHeadlines = (context.recentNewsHeadlines || []).slice(0, 5).map((article, i) => 
+    `${i + 1}. "${article.title}" (${article.source}, ${article.date})`
+  ).join('\n') || 'No recent news articles available.';
+  
+  // Build actual tweet content (not just percentages)
+  const recentTweets = (context.recentTweets || []).slice(0, 5).map((tweet, i) => 
+    `${i + 1}. "${tweet.text}" (${tweet.likes} likes, ${tweet.retweets} retweets, ${tweet.date})`
+  ).join('\n') || 'No recent tweets available.';
+  
+  const prompt = `You are analyzing reputation data for a professional athlete.
 
-Context:
+METRIC: ${metricName}
+SCORE: ${score}/100
+
+RECENT NEWS HEADLINES (Last 7 days):
+${newsHeadlines}
+
+RECENT TWEETS (Last 7 days):
+${recentTweets}
+
+STATISTICS:
 - Twitter: ${context.twitterPctPositive}% positive sentiment, ${context.twitterFollowers} followers, ${context.twitterMentions} mentions
 - Instagram: ${context.instagramPctPositive}% positive, ${context.instagramFollowers} followers, ${context.instagramPosts} posts
-- News: ${context.newsMentions} mentions, ${context.newsSentiment} sentiment
+- News: ${context.newsMentions} articles total, ${context.newsSentiment} sentiment breakdown
 
-Format your response exactly as:
-Description paragraph (2 sentences, no label).
+TASK: Generate a compelling explanation for why this ${metricName} score is ${score}.
 
-- Bullet point 1
-- Bullet point 2
-- Bullet point 3
-- Bullet point 4`;
+CRITICAL REQUIREMENTS:
+1. Extract SPECIFIC events, achievements, or incidents from the actual headlines and tweets above
+2. Include DATES when events are mentioned (e.g., "February 2026: Transfer speculation")
+3. Reference ACTUAL achievements from the data (e.g., "54 England caps", "La Liga champion")
+4. Quote REAL statements or headlines when relevant (e.g., 'Manager says: "Key player"')
+5. Name SPECIFIC controversies or incidents if present (e.g., "Fan confrontation after loss")
+6. DO NOT use generic language like "strong social media presence" - be SPECIFIC
+7. If limited data, say so directly rather than inventing generic statements
+
+FORMAT:
+Summary: [2 sentences explaining what drives this score - be specific about actual events/achievements]
+
+Breakdown (exactly 4 bullet points):
+- [Specific detail with evidence from headlines/tweets above]
+- [Another specific achievement, stat, or incident]
+- [Direct quote or concrete example from the data]
+- [Supporting evidence with actual numbers or events]
+
+GOOD EXAMPLE:
+- February 2026: Transfer speculation to Barcelona dominates headlines (8 articles)
+- 54 England caps - established international recognition and credibility
+- Manager quote: "One of the best right-backs in the Premier League"
+- Recent tweet celebrating trophy win received 15K likes (highest engagement this month)
+
+BAD EXAMPLE (DO NOT DO THIS):
+- Strong social media engagement
+- Positive media coverage
+- Good relationship with fans
+- Consistent performance levels`;
 
   try {
     const res = await axios.post(
@@ -538,7 +582,19 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
       instagramPosts: instagramPosts.length,
       newsMentions: news.length,
       newsSentiment: newsSentimentStr,
-      data_quality: { twitter_ok: twitterOk, sentiment_ok: sentimentOk }
+      data_quality: { twitter_ok: twitterOk, sentiment_ok: sentimentOk },
+      // NEW: Pass actual content for Claude to analyze
+      recentNewsHeadlines: news.slice(0, 5).map(article => ({
+        title: article.title,
+        source: article.source || 'Unknown',
+        date: article.publishedAt ? new Date(article.publishedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recent'
+      })),
+      recentTweets: tweets.slice(0, 5).map(tweet => ({
+        text: (tweet.text || '').substring(0, 200), // Truncate long tweets
+        likes: tweet.likes || 0,
+        retweets: tweet.retweets || 0,
+        date: tweet.createdAt ? new Date(tweet.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recent'
+      }))
     };
     console.log('📝 Generating score explanations (Claude)...');
     const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext);
