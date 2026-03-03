@@ -1110,7 +1110,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     console.log('📰 News (NewsData.io)...');
     const news = await searchNews(athleteName, 7, country, sport);
     console.log('📰 Checking tabloids (NewsAPI.org)...');
-    const tabloidNews = await searchNewsAPI(athleteName, 30);
+    const tabloidNews = await searchNewsAPI(athleteName, 28);
     
     // Merge and deduplicate news sources
     const allNews = [...news];
