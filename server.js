@@ -1,5 +1,6 @@
 // BLUE & LINTELL - ATHLETE DASHBOARD BACKEND (Phase 1 MVP)
 // Includes CORS, historical tracking, and /api/athlete/:id/history/:days (Milestone 1)
+// HYBRID SCANDAL DETECTION: NewsData.io + NewsAPI.org (tabloids) + Twitter scanning
 
 require('dotenv').config();
 const express = require('express');
@@ -276,6 +277,90 @@ async function searchNews(athleteName, daysBack = 7, country, sport = 'football'
   }
 }
 
+// --- NewsAPI.org for tabloid/scandal coverage (Free tier: 100 requests/day) ---
+const NEWSAPI_KEY = process.env.NEWSAPI_KEY || '';
+let newsApiRequestCount = 0;
+const NEWS_API_DAILY_LIMIT = 100;
+
+async function searchNewsAPI(athleteName, daysBack = 30) {
+  if (!NEWSAPI_KEY) {
+    console.log('⚠️  NewsAPI.org key not set - skipping tabloid search. Add NEWSAPI_KEY to Railway environment variables.');
+    return [];
+  }
+  if (newsApiRequestCount >= NEWS_API_DAILY_LIMIT) {
+    console.warn(`⚠️  NewsAPI.org daily limit reached (${NEWS_API_DAILY_LIMIT} requests). Consider upgrading to paid tier ($49/month) for unlimited requests.`);
+    return [];
+  }
+  try {
+    const q = (athleteName || '').trim();
+    if (q.length < 3) return [];
+    const toDate = new Date();
+    const fromDate = new Date(Date.now() - daysBack * 86400000);
+    const from = fromDate.toISOString().split('T')[0];
+    const to = toDate.toISOString().split('T')[0];
+    newsApiRequestCount++;
+    console.log(`📰 NewsAPI.org request ${newsApiRequestCount}/${NEWS_API_DAILY_LIMIT} (Free tier)`);
+    const res = await axios.get('https://newsapi.org/v2/everything', {
+      params: {
+        apiKey: NEWSAPI_KEY,
+        q,
+        language: 'en',
+        from,
+        to,
+        sortBy: 'publishedAt',
+        pageSize: 20
+      },
+      timeout: 10000
+    });
+    if (res.data.status === 'ok' && res.data.articles) {
+      const articles = res.data.articles.map(a => ({
+        title: a.title,
+        description: a.description,
+        content: a.content,
+        url: a.url,
+        source: a.source?.name || 'Unknown',
+        publishedAt: a.publishedAt,
+        imageUrl: a.urlToImage,
+        category: ['sports'],
+        sentiment: null
+      }));
+      console.log(`📰 NewsAPI.org found ${articles.length} articles from tabloid sources`);
+      return articles;
+    }
+    return [];
+  } catch (e) {
+    if (e.response?.status === 429) {
+      console.error('⚠️  NewsAPI.org rate limit hit! Upgrade to paid tier ($49/month) for unlimited requests.');
+    } else {
+      logApiError('NewsAPI.org search error:', e);
+    }
+    return [];
+  }
+}
+
+// --- Twitter mention scandal detection ---
+function scanTwitterForScandals(tweets, brandRiskKeywords) {
+  const scandalSignals = [];
+  tweets.forEach(tweet => {
+    const text = (tweet.text || '').toLowerCase();
+    const matchedKeywords = brandRiskKeywords.filter(keyword => 
+      text.includes(keyword.toLowerCase())
+    );
+    if (matchedKeywords.length > 0) {
+      scandalSignals.push({
+        text: tweet.text,
+        keywords: matchedKeywords,
+        likes: tweet.likes || 0,
+        retweets: tweet.retweets || 0,
+        date: tweet.createdAt,
+        engagement: (tweet.likes || 0) + (tweet.retweets || 0)
+      });
+    }
+  });
+  scandalSignals.sort((a, b) => b.engagement - a.engagement);
+  return scandalSignals.slice(0, 5);
+}
+
 // --- Sentiment (AWS) ---
 const NEUTRAL_FALLBACK = { sentiment: 'NEUTRAL', scores: { positive: 0, negative: 0, neutral: 1, mixed: 0 } };
 
@@ -345,7 +430,7 @@ function calculateReputationScores(athleteData) {
   const avgTweetEng = tweets.length ? twitterEng / tweets.length : 0;
   const likeabilityScore = Math.max(40, Math.min(100, Math.round(50 + Math.log10(1 + avgTweetEng) * 8 + (instaPosts.length ? 5 : 0))));
   
-  // ENHANCED CONTROVERSY SCORE with brand risk keyword detection
+  // ENHANCED CONTROVERSY SCORE with 3-layer brand risk detection
   
   // Comprehensive brand risk keywords (organized by category)
   const brandRiskKeywords = [
@@ -413,7 +498,7 @@ function calculateReputationScores(athleteData) {
     'training ground bust-up', 'dressing room row', 'fell out with', 'disciplined by club'
   ];
   
-  // Scan news headlines and content for brand risk keywords
+  // SOURCE 1: NewsData.io + NewsAPI.org headlines
   let brandRiskCount = 0;
   const brandRiskArticles = [];
   
@@ -422,7 +507,6 @@ function calculateReputationScores(athleteData) {
     const description = (article.description || '').toLowerCase();
     const content = headline + ' ' + description;
     
-    // Check if any brand risk keyword appears
     const matchedKeywords = brandRiskKeywords.filter(keyword => 
       content.includes(keyword.toLowerCase())
     );
@@ -431,13 +515,34 @@ function calculateReputationScores(athleteData) {
       brandRiskCount++;
       brandRiskArticles.push({
         title: article.title,
+        source: article.source || 'Unknown',
         keywords: matchedKeywords,
-        date: article.publishedAt
+        date: article.publishedAt,
+        detectSource: 'news'
       });
     }
   });
   
-  // Calculate brand risk penalty (each risky article adds 8 points, max 40 points)
+  // SOURCE 2: Twitter scandal signals (NEW!)
+  const twitterScandals = scanTwitterForScandals(mentions, brandRiskKeywords);
+  const significantTwitterScandals = twitterScandals.filter(t => t.engagement >= 500);
+  const twitterRiskCount = Math.min(3, significantTwitterScandals.length);
+  brandRiskCount += twitterRiskCount;
+  
+  significantTwitterScandals.slice(0, 3).forEach(scandal => {
+    brandRiskArticles.push({
+      title: scandal.text.substring(0, 100) + '...',
+      source: 'Twitter',
+      keywords: scandal.keywords,
+      date: scandal.date,
+      engagement: scandal.engagement,
+      detectSource: 'twitter'
+    });
+  });
+  
+  console.log(`🚨 Brand risk: ${brandRiskCount} incidents (${brandRiskArticles.filter(a => a.detectSource === 'news').length} news + ${twitterRiskCount} Twitter)`);
+  
+  // Calculate brand risk penalty (each risky article/tweet adds 8 points, max 40 points)
   const brandRiskPenalty = Math.min(40, brandRiskCount * 8);
   
   // Combine sentiment-based controversy with brand risk
@@ -456,7 +561,7 @@ function calculateReputationScores(athleteData) {
     authenticityScore, 
     controversyScore, 
     relevanceScore,
-    brandRiskArticles // Pass this to context for Claude to reference in explanations
+    brandRiskArticles
   };
 }
 
@@ -1002,19 +1107,36 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     const instagramProfile = hasInstagram ? await getInstagramProfile(instagramBusinessId) : null;
     const instagramPosts = hasInstagram ? await getInstagramPosts(instagramBusinessId, 10) : [];
     const instagramInsights = hasInstagram ? await getInstagramInsights(instagramBusinessId) : {};
-    console.log('📰 News...');
+    console.log('📰 News (NewsData.io)...');
     const news = await searchNews(athleteName, 7, country, sport);
+    console.log('📰 Checking tabloids (NewsAPI.org)...');
+    const tabloidNews = await searchNewsAPI(athleteName, 30);
+    
+    // Merge and deduplicate news sources
+    const allNews = [...news];
+    let tabloidCount = 0;
+    tabloidNews.forEach(article => {
+      const exists = allNews.some(a => a.title && article.title && a.title.toLowerCase() === article.title.toLowerCase());
+      if (!exists) { 
+        allNews.push(article); 
+        tabloidCount++; 
+      }
+    });
+    console.log(`📰 Added ${tabloidCount} unique tabloid articles. Total: ${allNews.length} articles`);
+    
     console.log('🤖 Sentiment...');
     const tweetSents = await Promise.all(tweets.slice(0, 10).map(t => analyzeSentiment(t.text)));
     tweets.forEach((t, i) => { if (i < 10) t.sentiment = tweetSents[i]; });
-    const newsSents = await Promise.all(news.slice(0, 10).map(a => analyzeSentiment(a.title + ' ' + (a.description || ''))));
-    news.forEach((a, i) => { if (i < 10) a.sentiment = newsSents[i]; });
-    const athleteData = { profile: twitterProfile, tweets, mentions, instagram: { profile: instagramProfile, posts: instagramPosts, insights: instagramInsights }, news };
+    const newsSents = await Promise.all(allNews.slice(0, 10).map(a => analyzeSentiment(a.title + ' ' + (a.description || ''))));
+    allNews.forEach((a, i) => { if (i < 10) a.sentiment = newsSents[i]; });
+    
+    const athleteData = { profile: twitterProfile, tweets, mentions, instagram: { profile: instagramProfile, posts: instagramPosts, insights: instagramInsights }, news: allNews };
+    
     const twitterOk = !!twitterProfile;
     const sentimentOk = (tweetSents.length > 0 && tweetSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0)) || (newsSents.length > 0 && newsSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0));
     console.log('📈 Scores...');
     const scores = calculateReputationScores(athleteData);
-    const timeline = generateTimeline(tweets, news, instagramPosts);
+    const timeline = generateTimeline(tweets, allNews, instagramPosts);
     const twitterPos = tweetSents.filter(s => s && s.sentiment === 'POSITIVE').length;
     const twitterPctPositive = tweetSents.length ? Math.round((twitterPos / tweetSents.length) * 100) : 0;
     const newsPos = newsSents.filter(s => s && s.sentiment === 'POSITIVE').length;
@@ -1027,11 +1149,11 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
       instagramPctPositive: instagramPosts.length ? 70 : 0,
       instagramFollowers: (instagramProfile?.followers || 0).toLocaleString(),
       instagramPosts: instagramPosts.length,
-      newsMentions: news.length,
+      newsMentions: allNews.length,
       newsSentiment: newsSentimentStr,
       data_quality: { twitter_ok: twitterOk, sentiment_ok: sentimentOk },
       // NEW: Pass actual content for Claude to analyze
-      recentNewsHeadlines: news.slice(0, 5).map(article => ({
+      recentNewsHeadlines: allNews.slice(0, 5).map(article => ({
         title: article.title,
         source: article.source || 'Unknown',
         date: article.publishedAt ? new Date(article.publishedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recent'
@@ -1090,10 +1212,10 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
       controversy_score: scores.controversyScore,
       relevance_score: scores.relevanceScore,
       recent_tweets: tweets.slice(0, 10),
-      recent_news: news.slice(0, 10),
+      recent_news: allNews.slice(0, 10),
       timeline_events: timeline,
       total_mentions: mentions.length,
-      news_articles_count: news.length,
+      news_articles_count: allNews.length,
       avg_tweet_engagement: tweets.length ? Math.round(tweets.reduce((s, t) => s + t.likes + t.retweets, 0) / tweets.length) : 0,
       perception_details,
       recent_instagram_posts: instagramPosts.slice(0, 10),
