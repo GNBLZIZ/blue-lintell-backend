@@ -525,7 +525,7 @@ function calculateReputationScores(athleteData) {
   
   // SOURCE 2: Twitter scandal signals (NEW!)
   const twitterScandals = scanTwitterForScandals(mentions, brandRiskKeywords);
-  const significantTwitterScandals = twitterScandals.filter(t => t.engagement >= 500);
+  const significantTwitterScandals = twitterScandals.filter(t => t.engagement >= 100);
   const twitterRiskCount = Math.min(3, significantTwitterScandals.length);
   brandRiskCount += twitterRiskCount;
   
@@ -1101,7 +1101,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     console.log('🐦 Twitter...');
     const twitterProfile = await getTwitterProfile(twitterHandle);
     const tweets = await getRecentTweets(twitterHandle, 20);
-    const mentions = await getTwitterMentions(twitterHandle, 20);
+    const mentions = await getTwitterMentions(twitterHandle, 100);
     console.log('📷 Instagram...');
     const hasInstagram = !!resolveInstagramUsername(instagramBusinessId);
     const instagramProfile = hasInstagram ? await getInstagramProfile(instagramBusinessId) : null;
