@@ -253,14 +253,18 @@ async function getInstagramInsights(instagramBusinessId) {
 }
 
 // --- News (NewsData.io) - apikey + q + language (required); avoid unsupported params that cause 422 ---
-async function searchNews(athleteName, daysBack = 7, country) {
+async function searchNews(athleteName, daysBack = 7, country, sport = 'football') {
   try {
     const q = (athleteName || '').trim();
     if (q.length < 3) return [];
+    
+    // Add sport context to disambiguate common names (e.g. "Anthony Gordon football" vs basketball player)
+    const searchQuery = sport ? `${q} ${sport}` : q;
+    
     const res = await axios.get('https://newsdata.io/api/1/news', {
       params: {
         apikey: process.env.NEWSDATA_API_KEY,
-        q,
+        q: searchQuery,
         language: 'en',
         ...(country ? { country } : {})
       }
@@ -470,7 +474,7 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // Use current model; claude-3-5-sonnet-20241022 is deprecated and can return 404
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
 
-async function generateScoreExplanation(metricName, score, context) {
+async function generateScoreExplanation(metricName, score, context, athleteName) {
   if (!ANTHROPIC_API_KEY) return { summary: '', breakdown: [] };
   
   // Build actual news headlines (not just counts)
@@ -536,6 +540,7 @@ IMPORTANT: These articles contain keywords associated with brand risk (personal 
   
   const prompt = `You are analyzing reputation data for a professional athlete.
 
+ATHLETE: ${athleteName || 'Professional Athlete'}
 METRIC: ${metricName}
 SCORE: ${score}/100
 
@@ -553,6 +558,8 @@ STATISTICS:
 - News: ${context.newsMentions} articles total, ${context.newsSentiment} sentiment breakdown
 
 TASK: Write a compelling, natural explanation for this ${metricName} score of ${score}.
+
+CRITICAL: You are analyzing ${athleteName}, NOT any other players mentioned in the headlines. Some headlines may mention teammates or other players - IGNORE THEM. Focus ONLY on ${athleteName}.
 
 CRITICAL STYLE REQUIREMENTS:
 1. Write in NATURAL PROSE - like a sports analyst, not an academic report
@@ -638,7 +645,7 @@ CRITICAL:
 }
 
 /** Generate strategic intelligence report with risks, recommendations, and watch-outs */
-async function generateStrategicIntelligence(scores, athleteData, context) {
+async function generateStrategicIntelligence(scores, athleteData, context, athleteName) {
   if (!ANTHROPIC_API_KEY) return null;
   
   const newsHeadlines = (context.recentNewsHeadlines || []).slice(0, 8).map((article, i) => 
@@ -650,6 +657,8 @@ async function generateStrategicIntelligence(scores, athleteData, context) {
   ).join('\n') || 'No recent tweets available.';
 
   const prompt = `You are an elite athlete reputation intelligence advisor providing strategic analysis.
+
+ATHLETE: ${athleteName || 'Professional Athlete'}
 
 ATHLETE REPUTATION SCORES:
 - Sentiment: ${scores.sentimentScore}/100
@@ -672,6 +681,8 @@ STATISTICS:
 - News: ${context.newsMentions} articles, ${context.newsSentiment}
 
 TASK: Provide strategic intelligence analysis for this athlete's reputation.
+
+CRITICAL: You are analyzing ${athleteName}, NOT any other players mentioned in the headlines or team news. Some headlines may mention teammates (e.g. Jacob Murphy, Lewis Miley) - IGNORE THEM. Focus ONLY on ${athleteName}'s reputation, risks, and recommendations.
 
 YOU ARE NOT A DATA REPORTER. You are a strategic advisor helping protect and enhance an elite athlete's reputation. Write with authority and insight.
 
@@ -902,7 +913,7 @@ function getTemplateExplanation(metricName, score, context) {
   return { summary: t.summary, breakdown: t.breakdown || [] };
 }
 
-async function buildPerceptionDetails(scores, athleteData, context) {
+async function buildPerceptionDetails(scores, athleteData, context, athleteName) {
   const base = { data_quality: context.data_quality || {} };
   const metricNames = ['Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance'];
   const scoreKeys = ['sentimentScore', 'credibilityScore', 'likeabilityScore', 'leadershipScore', 'authenticityScore', 'controversyScore', 'relevanceScore'];
@@ -911,7 +922,7 @@ async function buildPerceptionDetails(scores, athleteData, context) {
     let summary = '';
     let breakdown = [];
     if (ANTHROPIC_API_KEY) {
-      const result = await generateScoreExplanation(metricNames[i], score, context);
+      const result = await generateScoreExplanation(metricNames[i], score, context, athleteName);
       summary = result.summary || '';
       breakdown = Array.isArray(result.breakdown) ? result.breakdown : [result.breakdown].filter(Boolean);
     }
@@ -926,7 +937,7 @@ async function buildPerceptionDetails(scores, athleteData, context) {
   // Generate strategic intelligence report
   if (ANTHROPIC_API_KEY) {
     console.log('📋 Generating strategic intelligence...');
-    const strategicIntel = await generateStrategicIntelligence(scores, athleteData, context);
+    const strategicIntel = await generateStrategicIntelligence(scores, athleteData, context, athleteName);
     if (strategicIntel) {
       base.strategic_intelligence = strategicIntel;
     }
@@ -955,7 +966,7 @@ function generateTimeline(tweets, news, instagramPosts) {
   return events.slice(0, 15);
 }
 
-async function collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId, country) {
+async function collectAthleteData(athleteId, athleteName, twitterHandle, instagramBusinessId, country, sport = 'football') {
   console.log('\n📊 Collecting data for', athleteName);
   try {
     console.log('🐦 Twitter...');
@@ -968,7 +979,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     const instagramPosts = hasInstagram ? await getInstagramPosts(instagramBusinessId, 10) : [];
     const instagramInsights = hasInstagram ? await getInstagramInsights(instagramBusinessId) : {};
     console.log('📰 News...');
-    const news = await searchNews(athleteName, 7, country);
+    const news = await searchNews(athleteName, 7, country, sport);
     console.log('🤖 Sentiment...');
     const tweetSents = await Promise.all(tweets.slice(0, 10).map(t => analyzeSentiment(t.text)));
     tweets.forEach((t, i) => { if (i < 10) t.sentiment = tweetSents[i]; });
@@ -1011,7 +1022,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
       brandRiskArticles: scores.brandRiskArticles || []
     };
     console.log('📝 Generating score explanations (Claude)...');
-    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext);
+    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext, athleteName);
     const avgInstaEng = instagramPosts.length ? Math.round(instagramPosts.reduce((s, p) => s + (p.likes || 0) + (p.comments || 0), 0) / instagramPosts.length) : 0;
     const twitterFollowerCount = twitterProfile?.followers ?? 0;
     const instagramFollowerCount = instagramProfile?.followers ?? 0;
@@ -1131,15 +1142,16 @@ app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/athlete/refresh', async (req, res) => {
-  const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country } = req.body;
+  const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country, sport } = req.body;
   if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
   // Prefer athletes table as source of truth so Instagram username from DB is used (dashboard may have stale/null)
   let instagramId = instagramUsername ?? userName ?? instagramBusinessId ?? null;
   let useName = athleteName;
   let useTwitter = twitterHandle;
   let useCountry = country;
+  let useSport = sport || 'football'; // Default to football if not specified
   try {
-    const { data: athleteRow } = await supabase.from('athletes').select('instagram_business_id, twitter_handle, name, country').eq('id', athleteId).maybeSingle();
+    const { data: athleteRow } = await supabase.from('athletes').select('instagram_business_id, twitter_handle, name, country, sport').eq('id', athleteId).maybeSingle();
     if (athleteRow) {
       if (athleteRow.instagram_business_id != null && String(athleteRow.instagram_business_id).trim() !== '') {
         instagramId = athleteRow.instagram_business_id;
@@ -1147,10 +1159,11 @@ app.post('/api/athlete/refresh', async (req, res) => {
       if (athleteRow.twitter_handle != null && String(athleteRow.twitter_handle).trim() !== '') useTwitter = athleteRow.twitter_handle;
       if (athleteRow.name != null && String(athleteRow.name).trim() !== '') useName = athleteRow.name;
       if (athleteRow.country != null && String(athleteRow.country).trim() !== '') useCountry = athleteRow.country;
+      if (athleteRow.sport != null && String(athleteRow.sport).trim() !== '') useSport = athleteRow.sport;
     }
   } catch (_) { /* use body values */ }
   try {
-    const data = await collectAthleteData(athleteId, useName, useTwitter, instagramId, useCountry);
+    const data = await collectAthleteData(athleteId, useName, useTwitter, instagramId, useCountry, useSport);
     res.json({ success: !!data, data });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1170,7 +1183,7 @@ async function runDailyUpdate() {
     const { data: athletes, error } = await supabase.from('athletes').select('*').eq('active', true);
     if (error) throw error;
     for (const a of athletes || []) {
-      await collectAthleteData(a.id, a.name, a.twitter_handle, a.instagram_business_id, a.country);
+      await collectAthleteData(a.id, a.name, a.twitter_handle, a.instagram_business_id, a.country, a.sport || 'football');
       await new Promise(r => setTimeout(r, 5000));
     }
     console.log('✅ Daily update done');
