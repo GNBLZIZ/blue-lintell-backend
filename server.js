@@ -559,7 +559,19 @@ STATISTICS:
 
 TASK: Write a compelling, natural explanation for this ${metricName} score of ${score}.
 
-CRITICAL: You are analyzing ${athleteName}, NOT any other players mentioned in the headlines. Some headlines may mention teammates or other players - IGNORE THEM. Focus ONLY on ${athleteName}.
+CRITICAL FILTERING RULE - READ CAREFULLY:
+You are analyzing ${athleteName} ONLY. Many headlines will mention OTHER players (teammates, opponents). You MUST IGNORE articles where ${athleteName} is NOT the primary subject.
+
+Examples of what to IGNORE:
+- "Lewis Miley targets return from injury" → This is about MILEY, NOT ${athleteName}. IGNORE IT COMPLETELY.
+- "Jacob Murphy warns Newcastle" → This is about MURPHY, NOT ${athleteName}. IGNORE IT COMPLETELY.
+- "Newcastle midfielder injured" → If it doesn't explicitly name ${athleteName}, IGNORE IT.
+
+Only use articles where:
+- ${athleteName} is named in the headline, OR
+- The article is clearly and primarily ABOUT ${athleteName}
+
+If you're unsure whether an article is about ${athleteName}, DO NOT USE IT.
 
 CRITICAL STYLE REQUIREMENTS:
 1. Write in NATURAL PROSE - like a sports analyst, not an academic report
@@ -682,7 +694,19 @@ STATISTICS:
 
 TASK: Provide strategic intelligence analysis for this athlete's reputation.
 
-CRITICAL: You are analyzing ${athleteName}, NOT any other players mentioned in the headlines or team news. Some headlines may mention teammates (e.g. Jacob Murphy, Lewis Miley) - IGNORE THEM. Focus ONLY on ${athleteName}'s reputation, risks, and recommendations.
+CRITICAL FILTERING RULE - READ CAREFULLY:
+You are analyzing ${athleteName} ONLY. The news headlines include articles about OTHER Newcastle players (Lewis Miley, Jacob Murphy, etc.). You MUST COMPLETELY IGNORE any article where ${athleteName} is NOT the primary subject.
+
+DO NOT USE articles that are about other players, even if they mention the team:
+- "Lewis Miley targets return from injury" → About MILEY, NOT ${athleteName}. DO NOT reference this injury. IGNORE COMPLETELY.
+- "Jacob Murphy warns Newcastle" → About MURPHY, NOT ${athleteName}. IGNORE COMPLETELY.
+- "Newcastle midfielder frustrated by injury" → If it doesn't name ${athleteName}, IGNORE IT.
+
+ONLY use articles where:
+- ${athleteName} is explicitly named in the headline, OR
+- The article is clearly and primarily ABOUT ${athleteName}
+
+If an article is about another player's injury, DO NOT apply that injury to ${athleteName}. DO NOT assume ${athleteName} is injured unless the article explicitly says so.
 
 YOU ARE NOT A DATA REPORTER. You are a strategic advisor helping protect and enhance an elite athlete's reputation. Write with authority and insight.
 
