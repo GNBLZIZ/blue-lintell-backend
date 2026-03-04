@@ -549,8 +549,13 @@ function calculateReputationScores(athleteData) {
   const baseControversy = Math.round(negRatio * 100);
   const controversyScore = Math.min(100, baseControversy + brandRiskPenalty);
   
-  const relevanceScore = Math.min(100, Math.round((mentions.length * 2) + (news.length * 3) + (instagram?.insights?.impressions ? Math.log10(instagram.insights.impressions) * 5 : 0)));
-  const leadershipScore = Math.max(50, Math.min(100, Math.round((credibilityScore * 0.35) + (sentimentScore * 0.35) + (relevanceScore * 0.2) + (news.length > 5 ? 5 : 0))));
+// RECALIBRATED RELEVANCE: Square root scaling for realistic differentiation
+// 75 = good coverage, 90+ = superstar, 100 = global icon only
+const relevanceScore = Math.min(100, Math.round(
+  (Math.sqrt(mentions.length) * 7) +        // Diminishing returns on mentions
+  (Math.sqrt(news.length) * 9) +            // Diminishing returns on articles
+  (instagram?.insights?.impressions ? Math.log10(instagram.insights.impressions) * 5 : 0)
+));  const leadershipScore = Math.max(50, Math.min(100, Math.round((credibilityScore * 0.35) + (sentimentScore * 0.35) + (relevanceScore * 0.2) + (news.length > 5 ? 5 : 0))));
   const authenticityScore = Math.max(50, Math.min(100, Math.round((sentimentScore * 0.4) + (likeabilityScore * 0.4) + (validS.length ? 10 : 0))));
   
   return { 
