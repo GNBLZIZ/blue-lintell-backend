@@ -545,9 +545,28 @@ function calculateReputationScores(athleteData) {
   // Calculate brand risk penalty (each risky article/tweet adds 8 points, max 40 points)
   const brandRiskPenalty = Math.min(40, brandRiskCount * 8);
   
-  // Combine sentiment-based controversy with brand risk
+  // Add manual controversy incidents (if any)
+  const manualIncidents = athleteData.manualIncidents || [];
+  const manualPoints = manualIncidents.reduce((sum, incident) => sum + (incident.points || 0), 0);
+  
+  if (manualIncidents.length > 0) {
+    console.log(`🚨 Manual incidents: ${manualIncidents.length} flagged (${manualPoints} points)`);
+    manualIncidents.forEach(incident => {
+      brandRiskArticles.push({
+        title: incident.title,
+        source: incident.source + ' (Manual)',
+        keywords: ['manually flagged'],
+        date: incident.date,
+        detectSource: 'manual',
+        severity: incident.severity,
+        points: incident.points
+      });
+    });
+  }
+  
+  // Combine sentiment-based controversy with brand risk AND manual incidents
   const baseControversy = Math.round(negRatio * 100);
-  const controversyScore = Math.min(100, baseControversy + brandRiskPenalty);
+  const controversyScore = Math.min(100, baseControversy + brandRiskPenalty + manualPoints);
   
   // RECALIBRATED RELEVANCE: Square root scaling for realistic differentiation
   // 75 = good coverage, 90+ = superstar, 100 = global icon only
@@ -629,7 +648,7 @@ Key evidence: Consistency in post tone over time, personal vs PR language, genui
 Focus on: Specific incidents (red cards, fines, confrontations), disciplinary issues, inappropriate content, negative press patterns, risky behaviour, BRAND-DAMAGING PERSONAL LIFE ISSUES (divorces, inappropriate associations, legal troubles, substance issues).
 Distinguish from other scores: Controversy is about PROBLEMS and RISKS, not general negativity. Specific incidents, not poor performance. Includes off-field scandals even if media tone is neutral.
 Key evidence: Disciplinary records, specific incidents with dates, inappropriate social media content, legal issues, personal life scandals (divorce, affairs, nightclub incidents), inappropriate associations (Only Fans models, gambling, substances), pattern of negative behaviour vs isolated incidents.
-CRITICAL: Even neutrally-reported scandals damage brands - "spotted with Only Fans model" is brand-toxic even if not criticized.`,
+CRITICAL: Even neutrally-reported scandals damage brands - "spotted with Only Fans model" is brand-toxic even if not criticized. MANUAL INCIDENTS: Some incidents are manually flagged when automated detection misses them and appear as "(Manual)" in the source - these are confirmed, verified incidents requiring strategic attention.`,
 
     'Relevance': `This metric measures CULTURAL IMPACT & VISIBILITY - how much the athlete is part of the conversation.
 Focus on: Trending status, transfer speculation, mainstream media attention, cultural crossover (non-sports coverage), meme-ability, social conversation volume.
@@ -1130,13 +1149,31 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     });
     console.log(`📰 Added ${tabloidCount} unique tabloid articles. Total: ${allNews.length} articles`);
     
+    // Fetch manual controversy incidents from database
+    console.log('⚠️  Checking manual incidents...');
+    let manualIncidents = [];
+    try {
+      const { data: athleteRow } = await supabase
+        .from('athletes')
+        .select('manual_controversy_incidents')
+        .eq('id', athleteId)
+        .maybeSingle();
+      
+      manualIncidents = athleteRow?.manual_controversy_incidents || [];
+      if (manualIncidents.length > 0) {
+        console.log(`⚠️  Found ${manualIncidents.length} manual incidents`);
+      }
+    } catch (e) {
+      console.error('Error fetching manual incidents:', e.message);
+    }
+    
     console.log('🤖 Sentiment...');
     const tweetSents = await Promise.all(tweets.slice(0, 10).map(t => analyzeSentiment(t.text)));
     tweets.forEach((t, i) => { if (i < 10) t.sentiment = tweetSents[i]; });
     const newsSents = await Promise.all(allNews.slice(0, 10).map(a => analyzeSentiment(a.title + ' ' + (a.description || ''))));
     allNews.forEach((a, i) => { if (i < 10) a.sentiment = newsSents[i]; });
     
-    const athleteData = { profile: twitterProfile, tweets, mentions, instagram: { profile: instagramProfile, posts: instagramPosts, insights: instagramInsights }, news: allNews };
+    const athleteData = { profile: twitterProfile, tweets, mentions, instagram: { profile: instagramProfile, posts: instagramPosts, insights: instagramInsights }, news: allNews, manualIncidents };
     
     const twitterOk = !!twitterProfile;
     const sentimentOk = (tweetSents.length > 0 && tweetSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0)) || (newsSents.length > 0 && newsSents.some(s => s && s.scores && (s.scores.positive + s.scores.negative) > 0));
@@ -1327,7 +1364,6 @@ app.get('/api/athletes', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-
 // --- MANUAL CONTROVERSY OVERRIDE ENDPOINTS ---
 
 // Add manual controversy incident
@@ -1456,44 +1492,6 @@ app.get('/api/athlete/controversy/list/:athleteId', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
-
-    if (error) throw error;
-    res.json(data || []);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.post('/api/athlete/refresh', async (req, res) => {
-  const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country, sport } = req.body;
-  if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
-  // Prefer athletes table as source of truth so Instagram username from DB is used (dashboard may have stale/null)
-  let instagramId = instagramUsername ?? userName ?? instagramBusinessId ?? null;
-  let useName = athleteName;
-  let useTwitter = twitterHandle;
-  let useCountry = country;
-  let useSport = sport || 'football'; // Default to football if not specified
-  try {
-    const { data: athleteRow } = await supabase.from('athletes').select('instagram_business_id, twitter_handle, name, country, sport').eq('id', athleteId).maybeSingle();
-    if (athleteRow) {
-      if (athleteRow.instagram_business_id != null && String(athleteRow.instagram_business_id).trim() !== '') {
-        instagramId = athleteRow.instagram_business_id;
-      }
-      if (athleteRow.twitter_handle != null && String(athleteRow.twitter_handle).trim() !== '') useTwitter = athleteRow.twitter_handle;
-      if (athleteRow.name != null && String(athleteRow.name).trim() !== '') useName = athleteRow.name;
-      if (athleteRow.country != null && String(athleteRow.country).trim() !== '') useCountry = athleteRow.country;
-      if (athleteRow.sport != null && String(athleteRow.sport).trim() !== '') useSport = athleteRow.sport;
-    }
-  } catch (_) { /* use body values */ }
-  try {
-    const data = await collectAthleteData(athleteId, useName, useTwitter, instagramId, useCountry, useSport);
-    res.json({ success: !!data, data });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-app.get('/api/athletes', async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('athlete_dashboards').select('*').order('updated_at', { ascending: false });
-    if (error) throw error;
-    res.json(data || []);
-  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // --- Daily job (used by in-process cron and by HTTP trigger for production) ---
