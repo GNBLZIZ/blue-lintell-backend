@@ -525,7 +525,7 @@ function calculateReputationScores(athleteData) {
   
   // SOURCE 2: Twitter scandal signals (NEW!)
   const twitterScandals = scanTwitterForScandals(mentions, brandRiskKeywords);
-  const significantTwitterScandals = twitterScandals.filter(t => t.engagement >= 100);
+  const significantTwitterScandals = twitterScandals.filter(t => t.engagement >= 500);
   const twitterRiskCount = Math.min(3, significantTwitterScandals.length);
   brandRiskCount += twitterRiskCount;
   
@@ -549,13 +549,14 @@ function calculateReputationScores(athleteData) {
   const baseControversy = Math.round(negRatio * 100);
   const controversyScore = Math.min(100, baseControversy + brandRiskPenalty);
   
-// RECALIBRATED RELEVANCE: Square root scaling for realistic differentiation
-// 75 = good coverage, 90+ = superstar, 100 = global icon only
-const relevanceScore = Math.min(100, Math.round(
-  (Math.sqrt(mentions.length) * 7) +        // Diminishing returns on mentions
-  (Math.sqrt(news.length) * 9) +            // Diminishing returns on articles
-  (instagram?.insights?.impressions ? Math.log10(instagram.insights.impressions) * 5 : 0)
-));  const leadershipScore = Math.max(50, Math.min(100, Math.round((credibilityScore * 0.35) + (sentimentScore * 0.35) + (relevanceScore * 0.2) + (news.length > 5 ? 5 : 0))));
+  // RECALIBRATED RELEVANCE: Square root scaling for realistic differentiation
+  // 75 = good coverage, 90+ = superstar, 100 = global icon only
+  const relevanceScore = Math.min(100, Math.round(
+    (Math.sqrt(mentions.length) * 7) +        // Diminishing returns on mentions
+    (Math.sqrt(news.length) * 9) +            // Diminishing returns on articles
+    (instagram?.insights?.impressions ? Math.log10(instagram.insights.impressions) * 5 : 0)
+  ));
+  const leadershipScore = Math.max(50, Math.min(100, Math.round((credibilityScore * 0.35) + (sentimentScore * 0.35) + (relevanceScore * 0.2) + (news.length > 5 ? 5 : 0))));
   const authenticityScore = Math.max(50, Math.min(100, Math.round((sentimentScore * 0.4) + (likeabilityScore * 0.4) + (validS.length ? 10 : 0))));
   
   return { 
@@ -1115,7 +1116,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     console.log('📰 News (NewsData.io)...');
     const news = await searchNews(athleteName, 7, country, sport);
     console.log('📰 Checking tabloids (NewsAPI.org)...');
-    const tabloidNews = await searchNewsAPI(athleteName, 28);
+    const tabloidNews = await searchNewsAPI(athleteName, 30);
     
     // Merge and deduplicate news sources
     const allNews = [...news];
@@ -1288,6 +1289,175 @@ app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
     const daysNum = Math.min(30, Math.max(1, parseInt(req.params.days, 10) || 7));
     const fromStr = new Date(Date.now() - daysNum * 86400000).toISOString().split('T')[0];
     const { data, error } = await supabase.from('athlete_score_history').select('*').eq('athlete_id', req.params.athleteId).gte('snapshot_date', fromStr).order('snapshot_date', { ascending: true });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/athlete/refresh', async (req, res) => {
+  const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country, sport } = req.body;
+  if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
+  // Prefer athletes table as source of truth so Instagram username from DB is used (dashboard may have stale/null)
+  let instagramId = instagramUsername ?? userName ?? instagramBusinessId ?? null;
+  let useName = athleteName;
+  let useTwitter = twitterHandle;
+  let useCountry = country;
+  let useSport = sport || 'football'; // Default to football if not specified
+  try {
+    const { data: athleteRow } = await supabase.from('athletes').select('instagram_business_id, twitter_handle, name, country, sport').eq('id', athleteId).maybeSingle();
+    if (athleteRow) {
+      if (athleteRow.instagram_business_id != null && String(athleteRow.instagram_business_id).trim() !== '') {
+        instagramId = athleteRow.instagram_business_id;
+      }
+      if (athleteRow.twitter_handle != null && String(athleteRow.twitter_handle).trim() !== '') useTwitter = athleteRow.twitter_handle;
+      if (athleteRow.name != null && String(athleteRow.name).trim() !== '') useName = athleteRow.name;
+      if (athleteRow.country != null && String(athleteRow.country).trim() !== '') useCountry = athleteRow.country;
+      if (athleteRow.sport != null && String(athleteRow.sport).trim() !== '') useSport = athleteRow.sport;
+    }
+  } catch (_) { /* use body values */ }
+  try {
+    const data = await collectAthleteData(athleteId, useName, useTwitter, instagramId, useCountry, useSport);
+    res.json({ success: !!data, data });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/athletes', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('athlete_dashboards').select('*').order('updated_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// --- MANUAL CONTROVERSY OVERRIDE ENDPOINTS ---
+
+// Add manual controversy incident
+app.post('/api/athlete/controversy/add', async (req, res) => {
+  const { athleteId, incident } = req.body;
+  
+  if (!athleteId || !incident) {
+    return res.status(400).json({ error: 'Missing required fields: athleteId, incident' });
+  }
+  
+  if (!incident.title || !incident.date || !incident.source) {
+    return res.status(400).json({ error: 'Incident must have title, date, and source' });
+  }
+  
+  try {
+    const { data: athlete, error: fetchError } = await supabase
+      .from('athletes')
+      .select('manual_controversy_incidents')
+      .eq('id', athleteId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    const currentIncidents = athlete?.manual_controversy_incidents || [];
+    const severity = incident.severity || 'medium';
+    const points = severity === 'low' ? 8 : severity === 'high' ? 24 : 16;
+    
+    const newIncident = {
+      id: Date.now().toString(),
+      title: incident.title,
+      date: incident.date,
+      source: incident.source,
+      severity,
+      points,
+      added_at: new Date().toISOString(),
+      notes: incident.notes || ''
+    };
+    
+    const updatedIncidents = [...currentIncidents, newIncident];
+    
+    const { error: updateError } = await supabase
+      .from('athletes')
+      .update({ manual_controversy_incidents: updatedIncidents })
+      .eq('id', athleteId);
+    
+    if (updateError) throw updateError;
+    
+    console.log(`✅ Added manual controversy incident for athlete ${athleteId}: ${newIncident.title}`);
+    
+    res.json({ 
+      success: true, 
+      incident: newIncident,
+      total_incidents: updatedIncidents.length,
+      total_points: updatedIncidents.reduce((sum, i) => sum + i.points, 0)
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Remove manual controversy incident
+app.delete('/api/athlete/controversy/remove', async (req, res) => {
+  const { athleteId, incidentId } = req.body;
+  
+  if (!athleteId || !incidentId) {
+    return res.status(400).json({ error: 'Missing required fields: athleteId, incidentId' });
+  }
+  
+  try {
+    const { data: athlete, error: fetchError } = await supabase
+      .from('athletes')
+      .select('manual_controversy_incidents')
+      .eq('id', athleteId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    const currentIncidents = athlete?.manual_controversy_incidents || [];
+    const updatedIncidents = currentIncidents.filter(i => i.id !== incidentId);
+    
+    if (updatedIncidents.length === currentIncidents.length) {
+      return res.status(404).json({ error: 'Incident not found' });
+    }
+    
+    const { error: updateError } = await supabase
+      .from('athletes')
+      .update({ manual_controversy_incidents: updatedIncidents })
+      .eq('id', athleteId);
+    
+    if (updateError) throw updateError;
+    
+    console.log(`✅ Removed manual controversy incident ${incidentId} for athlete ${athleteId}`);
+    
+    res.json({ 
+      success: true,
+      removed_id: incidentId,
+      remaining_incidents: updatedIncidents.length,
+      total_points: updatedIncidents.reduce((sum, i) => sum + i.points, 0)
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// List manual controversy incidents
+app.get('/api/athlete/controversy/list/:athleteId', async (req, res) => {
+  try {
+    const { data: athlete, error } = await supabase
+      .from('athletes')
+      .select('manual_controversy_incidents, name')
+      .eq('id', req.params.athleteId)
+      .single();
+    
+    if (error) throw error;
+    
+    const incidents = athlete?.manual_controversy_incidents || [];
+    const totalPoints = incidents.reduce((sum, i) => sum + i.points, 0);
+    
+    res.json({
+      athlete_id: req.params.athleteId,
+      athlete_name: athlete?.name,
+      incidents,
+      total_incidents: incidents.length,
+      total_points: totalPoints
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
     if (error) throw error;
     res.json(data || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
