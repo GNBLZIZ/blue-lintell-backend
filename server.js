@@ -1352,7 +1352,7 @@ app.post('/api/athlete/refresh', async (req, res) => {
   try {
     const { data: athleteRow, error: dbError } = await supabase
       .from('athletes')
-      .select('instagram_business_id, twitter_handle, name, country, sport')
+      .select('instagram_business_id, twitter_handle, name, sport')
       .eq('id', athleteId)
       .maybeSingle();
     
