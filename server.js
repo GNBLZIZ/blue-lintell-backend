@@ -1337,29 +1337,52 @@ app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
 app.post('/api/athlete/refresh', async (req, res) => {
   const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country, sport } = req.body;
   if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
-  // Prefer athletes table as source of truth so Instagram username from DB is used (dashboard may have stale/null)
+  
+  console.log('🔍 REFRESH DEBUG - Body received:', { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName });
+  
+  // Prefer athletes table as source of truth so Instagram username from DB is used
   let instagramId = instagramUsername ?? userName ?? instagramBusinessId ?? null;
   let useName = athleteName;
   let useTwitter = twitterHandle;
   let useCountry = country;
-  let useSport = sport || 'football'; // Default to football if not specified
+  let useSport = sport || 'football';
+  
+  console.log('🔍 REFRESH DEBUG - Initial instagramId:', instagramId);
+  
   try {
-    const { data: athleteRow } = await supabase.from('athletes').select('instagram_business_id, twitter_handle, name, country, sport').eq('id', athleteId).maybeSingle();
+    const { data: athleteRow, error: dbError } = await supabase
+      .from('athletes')
+      .select('instagram_business_id, twitter_handle, name, country, sport')
+      .eq('id', athleteId)
+      .maybeSingle();
+    
+    console.log('🔍 REFRESH DEBUG - DB query error:', dbError);
+    console.log('🔍 REFRESH DEBUG - athleteRow:', athleteRow);
+    
     if (athleteRow) {
       if (athleteRow.instagram_business_id != null && String(athleteRow.instagram_business_id).trim() !== '') {
         instagramId = athleteRow.instagram_business_id;
+        console.log('🔍 REFRESH DEBUG - Set instagramId from DB:', instagramId);
       }
       if (athleteRow.twitter_handle != null && String(athleteRow.twitter_handle).trim() !== '') useTwitter = athleteRow.twitter_handle;
       if (athleteRow.name != null && String(athleteRow.name).trim() !== '') useName = athleteRow.name;
       if (athleteRow.country != null && String(athleteRow.country).trim() !== '') useCountry = athleteRow.country;
       if (athleteRow.sport != null && String(athleteRow.sport).trim() !== '') useSport = athleteRow.sport;
     }
-  } catch (_) { /* use body values */ }
+  } catch (e) {
+    console.error('🔍 REFRESH DEBUG - Exception fetching from DB:', e.message);
+  }
+  
+  console.log('🔍 REFRESH DEBUG - Final instagramId being passed:', instagramId);
+  
   try {
     const data = await collectAthleteData(athleteId, useName, useTwitter, instagramId, useCountry, useSport);
     res.json({ success: !!data, data });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
+
 app.get('/api/athletes', async (req, res) => {
   try {
     const { data, error } = await supabase.from('athlete_dashboards').select('*').order('updated_at', { ascending: false });
