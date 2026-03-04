@@ -1101,7 +1101,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     console.log('🐦 Twitter...');
     const twitterProfile = await getTwitterProfile(twitterHandle);
     const tweets = await getRecentTweets(twitterHandle, 20);
-    const mentions = await getTwitterMentions(twitterHandle, 100);
+    const mentions = await getTwitterMentions(twitterHandle, 50);
     console.log('📷 Instagram...');
     const hasInstagram = !!resolveInstagramUsername(instagramBusinessId);
     const instagramProfile = hasInstagram ? await getInstagramProfile(instagramBusinessId) : null;
