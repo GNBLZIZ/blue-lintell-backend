@@ -1345,9 +1345,15 @@ app.post('/api/athlete/refresh', async (req, res) => {
   let useSport = sport || 'football'; // Default to football if not specified
   try {
     const { data: athleteRow } = await supabase.from('athletes').select('instagram_business_id, twitter_handle, name, country, sport').eq('id', athleteId).maybeSingle();
+    console.log('🔍 DEBUG: athleteRow from DB:', athleteRow);
+    console.log('🔍 DEBUG: instagram_business_id from DB:', athleteRow?.instagram_business_id);
     if (athleteRow) {
       if (athleteRow.instagram_business_id != null && String(athleteRow.instagram_business_id).trim() !== '') {
         instagramId = athleteRow.instagram_business_id;
+        console.log('🔍 DEBUG: Set instagramId to:', instagramId);
+      } else {
+        console.log('🔍 DEBUG: Instagram ID was null or empty in DB');
+      }instagramId = athleteRow.instagram_business_id;
       }
       if (athleteRow.twitter_handle != null && String(athleteRow.twitter_handle).trim() !== '') useTwitter = athleteRow.twitter_handle;
       if (athleteRow.name != null && String(athleteRow.name).trim() !== '') useName = athleteRow.name;
