@@ -525,7 +525,7 @@ function calculateReputationScores(athleteData) {
   
   // SOURCE 2: Twitter scandal signals (NEW!)
   const twitterScandals = scanTwitterForScandals(mentions, brandRiskKeywords);
-  const significantTwitterScandals = twitterScandals.filter(t => t.engagement >= 500);
+  const significantTwitterScandals = twitterScandals.filter(t => t.engagement >= 100);
   const twitterRiskCount = Math.min(3, significantTwitterScandals.length);
   brandRiskCount += twitterRiskCount;
   
@@ -1135,7 +1135,7 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     console.log('📰 News (NewsData.io)...');
     const news = await searchNews(athleteName, 7, country, sport);
     console.log('📰 Checking tabloids (NewsAPI.org)...');
-    const tabloidNews = await searchNewsAPI(athleteName, 30);
+    const tabloidNews = await searchNewsAPI(athleteName, 28);
     
     // Merge and deduplicate news sources
     const allNews = [...news];
