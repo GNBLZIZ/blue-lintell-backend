@@ -1,6 +1,7 @@
 // BLUE & LINTELL - ATHLETE DASHBOARD BACKEND (Phase 1 MVP)
 // Includes CORS, historical tracking, and /api/athlete/:id/history/:days (Milestone 1)
 // HYBRID SCANDAL DETECTION: NewsData.io + NewsAPI.org (tabloids) + Twitter scanning
+// NEW: 7-day rolling average endpoint
 
 require('dotenv').config();
 const express = require('express');
@@ -1334,6 +1335,105 @@ app.get('/api/athlete/:athleteId/history/:days', async (req, res) => {
     res.json(data || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// GET 7-day rolling averages for athlete
+app.get('/api/athlete/:id/rolling/:days', async (req, res) => {
+  try {
+    const { id, days } = req.params;
+    const numDays = parseInt(days) || 7;
+    
+    // Get last N+1 days of history (need yesterday for change calculation)
+    const { data: history, error } = await supabase
+      .from('athlete_score_history')
+      .select('*')
+      .eq('athlete_id', id)
+      .order('snapshot_date', { ascending: false })
+      .limit(numDays + 1);
+    
+    if (error) throw error;
+    if (!history || history.length < 2) {
+      return res.status(404).json({ error: 'Not enough historical data' });
+    }
+    
+    // Most recent = today, second most recent = yesterday
+    const today = history[0];
+    const yesterday = history[1];
+    
+    // Calculate 7-day averages (excluding today from average to get pure rolling avg)
+    const rollingData = history.slice(0, numDays);
+    
+    const calculateAverage = (field) => {
+      const values = rollingData.map(h => h[field]).filter(v => v != null);
+      if (values.length === 0) return null;
+      return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+    };
+    
+    const calculateChange = (field) => {
+      const todayVal = today[field];
+      const yesterdayVal = yesterday[field];
+      if (todayVal == null || yesterdayVal == null) return 0;
+      return todayVal - yesterdayVal;
+    };
+    
+    // Scores to average (not Credibility - it's structural)
+    const scores = {
+      sentiment: {
+        current: today.sentiment_score,
+        rolling_avg: calculateAverage('sentiment_score'),
+        change_from_yesterday: calculateChange('sentiment_score'),
+        trend: calculateChange('sentiment_score') > 0 ? 'up' : calculateChange('sentiment_score') < 0 ? 'down' : 'stable'
+      },
+      credibility: {
+        current: today.credibility_score,
+        rolling_avg: today.credibility_score, // No averaging for credibility
+        change_from_yesterday: calculateChange('credibility_score'),
+        trend: calculateChange('credibility_score') > 0 ? 'up' : calculateChange('credibility_score') < 0 ? 'down' : 'stable'
+      },
+      likeability: {
+        current: today.likeability_score,
+        rolling_avg: calculateAverage('likeability_score'),
+        change_from_yesterday: calculateChange('likeability_score'),
+        trend: calculateChange('likeability_score') > 0 ? 'up' : calculateChange('likeability_score') < 0 ? 'down' : 'stable'
+      },
+      leadership: {
+        current: today.leadership_score,
+        rolling_avg: calculateAverage('leadership_score'),
+        change_from_yesterday: calculateChange('leadership_score'),
+        trend: calculateChange('leadership_score') > 0 ? 'up' : calculateChange('leadership_score') < 0 ? 'down' : 'stable'
+      },
+      authenticity: {
+        current: today.authenticity_score,
+        rolling_avg: calculateAverage('authenticity_score'),
+        change_from_yesterday: calculateChange('authenticity_score'),
+        trend: calculateChange('authenticity_score') > 0 ? 'up' : calculateChange('authenticity_score') < 0 ? 'down' : 'stable'
+      },
+      controversy: {
+        current: today.controversy_score,
+        rolling_avg: calculateAverage('controversy_score'),
+        change_from_yesterday: calculateChange('controversy_score'),
+        trend: calculateChange('controversy_score') > 0 ? 'up' : calculateChange('controversy_score') < 0 ? 'down' : 'stable'
+      },
+      relevance: {
+        current: today.relevance_score,
+        rolling_avg: calculateAverage('relevance_score'),
+        change_from_yesterday: calculateChange('relevance_score'),
+        trend: calculateChange('relevance_score') > 0 ? 'up' : calculateChange('relevance_score') < 0 ? 'down' : 'stable'
+      }
+    };
+    
+    res.json({
+      athlete_id: id,
+      period_days: numDays,
+      period_start: rollingData[rollingData.length - 1]?.snapshot_date,
+      period_end: rollingData[0]?.snapshot_date,
+      scores
+    });
+    
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/athlete/refresh', async (req, res) => {
   const { athleteId, athleteName, twitterHandle, instagramBusinessId, instagramUsername, userName, country, sport } = req.body;
   if (!athleteId || !athleteName || !twitterHandle) return res.status(400).json({ error: 'Missing required fields: athleteId, athleteName, twitterHandle' });
@@ -1564,7 +1664,7 @@ app.get('/api/cron/daily', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log('\n🚀 Blue & Lintell Backend on port', PORT);
-  console.log('   GET /api/health  GET /api/athletes/list  POST /api/athletes  GET /api/athlete/:id  GET /api/athlete/:id/history/:days  POST /api/athlete/refresh  GET /api/athletes  GET /api/cron/daily\n');
+  console.log('   GET /api/health  GET /api/athletes/list  POST /api/athletes  GET /api/athlete/:id  GET /api/athlete/:id/history/:days  GET /api/athlete/:id/rolling/:days  POST /api/athlete/refresh  GET /api/athletes  GET /api/cron/daily\n');
 });
 
 module.exports = app;
