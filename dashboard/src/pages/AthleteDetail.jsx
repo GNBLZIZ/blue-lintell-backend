@@ -30,6 +30,7 @@ export default function AthleteDetail() {
   const { athleteId } = useParams();
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
+  const [rollingData, setRollingData] = useState(null);
   const [history, setHistory] = useState([]);
   const [historyDays, setHistoryDays] = useState(30); // 30 days for temporal comparison
   const [loading, setLoading] = useState(true);
@@ -43,6 +44,20 @@ export default function AthleteDetail() {
     api.athlete(athleteId).then(setDashboard).catch((e) => setError(e.message));
   };
 
+  const loadRollingAverage = async () => {
+    if (!athleteId) return;
+    try {
+      const response = await fetch(`https://blue-lintell-backend-production-4040.up.railway.app/api/athlete/${athleteId}/rolling/7`);
+      if (response.ok) {
+        const data = await response.json();
+        setRollingData(data);
+      }
+    } catch (err) {
+      console.log('Rolling average not available:', err);
+      setRollingData(null);
+    }
+  };
+
   const loadHistory = () => {
     if (!athleteId) return;
     api.athleteHistory(athleteId, historyDays).then(setHistory).catch(() => setHistory([]));
@@ -51,6 +66,7 @@ export default function AthleteDetail() {
   useEffect(() => {
     setLoading(true);
     loadDashboard();
+    loadRollingAverage();
     loadHistory();
     setLoading(false);
   }, [athleteId]);
@@ -74,6 +90,7 @@ export default function AthleteDetail() {
       .then((res) => {
         if (res.success) {
           loadDashboard();
+          loadRollingAverage();
           loadHistory();
         }
       })
@@ -95,11 +112,32 @@ export default function AthleteDetail() {
   const alertLevel = dashboard.overall_alert_level || 'nominal';
   const pd = dashboard.perception_details || {};
   const agg = pd.engagement_aggregates || {};
-  const scores = SCORE_KEYS.map((label, i) => ({
-    label,
-    value: dashboard[SCORE_FIELDS[i]] ?? '—',
-    key: SCORE_FIELDS[i]
-  }));
+  
+  // Build scores array with rolling average integration
+  const scores = SCORE_KEYS.map((label, i) => {
+    const field = SCORE_FIELDS[i];
+    const currentValue = dashboard[field] ?? '—';
+    
+    // Get rolling average data if available
+    let rollingAvg = currentValue;
+    let changeFromYesterday = null;
+    let trend = 'stable';
+    
+    if (rollingData?.scores?.[field]) {
+      rollingAvg = rollingData.scores[field].rolling_avg ?? currentValue;
+      changeFromYesterday = rollingData.scores[field].change_from_yesterday ?? null;
+      trend = rollingData.scores[field].trend ?? 'stable';
+    }
+    
+    return {
+      label,
+      value: rollingAvg,
+      currentValue,
+      changeFromYesterday,
+      trend,
+      key: field
+    };
+  });
 
   const sentimentHistory = (history || [])
     .map((h) => ({ date: h.snapshot_date, sentiment: h.sentiment_score ?? 0 }))
@@ -128,11 +166,19 @@ export default function AthleteDetail() {
     const day7 = snap7?.[field] ?? current;
     const day14 = snap14?.[field] ?? current;
     const day30 = snap30?.[field] ?? current;
+    
+    // Add rolling average to evolution
+    let rolling7d = current;
+    if (rollingData?.scores?.[field]) {
+      rolling7d = rollingData.scores[field].rolling_avg ?? current;
+    }
+    
     const change = current - (day30 || current);
     const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
     return {
       metric,
       current,
+      rolling7d,
       day7,
       day14,
       day30,
@@ -144,6 +190,7 @@ export default function AthleteDetail() {
   const radarData = scoreEvolution.map((s) => ({
     metric: s.metric,
     current: s.current,
+    rolling7d: s.rolling7d,
     day30: s.day30
   }));
 
@@ -216,6 +263,11 @@ export default function AthleteDetail() {
             </div>
             <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               Last updated: {dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}
+              {rollingData?.period_start && rollingData?.period_end && (
+                <span style={{ marginLeft: '1rem' }}>
+                  7-day rolling average ({new Date(rollingData.period_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(rollingData.period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})
+                </span>
+              )}
             </p>
             {pd.data_quality && (pd.data_quality.twitter_ok === false || pd.data_quality.sentiment_ok === false) && (
               <p style={{ margin: '0.5rem 0 0', padding: '0.4rem 0.6rem', background: 'rgba(245,158,11,0.15)', borderRadius: 6, fontSize: '0.8rem' }}>
@@ -260,6 +312,19 @@ export default function AthleteDetail() {
               const details = pd[s.label];
               const isExpanded = expandedScore === s.label;
               const isDanger = s.label === 'Controversy' ? (s.value || 0) > thresholds.controversy.warning : (s.value || 0) < thresholds.sentiment.warning;
+              
+              // Determine change indicator color
+              let changeColor = COLORS.neutral;
+              if (s.changeFromYesterday !== null) {
+                if (s.label === 'Controversy') {
+                  // For controversy, down is good, up is bad
+                  changeColor = s.trend === 'down' ? COLORS.success : s.trend === 'up' ? COLORS.danger : COLORS.neutral;
+                } else {
+                  // For other metrics, up is good, down is bad
+                  changeColor = s.trend === 'up' ? COLORS.success : s.trend === 'down' ? COLORS.danger : COLORS.neutral;
+                }
+              }
+              
               return (
                 <div
                   key={s.label}
@@ -275,6 +340,21 @@ export default function AthleteDetail() {
                 >
                   <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase' }}>{s.label}</div>
                   <div style={{ fontSize: '2rem', fontWeight: 700 }}>{s.value ?? '—'}</div>
+                  
+                  {/* Change indicator */}
+                  {s.changeFromYesterday !== null && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
+                      <span style={{ color: changeColor, fontSize: '0.9rem', fontWeight: 600 }}>
+                        {s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '●'} {s.changeFromYesterday > 0 ? '+' : ''}{s.changeFromYesterday}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* 7-day average label */}
+                  {rollingData && (
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.25rem' }}>7-day average</div>
+                  )}
+                  
                   {(details?.summary || isExpanded) && (
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem', lineHeight: 1.4 }}>
                       {details?.summary || `Score: ${s.value ?? '—'}. Click for details.`}
@@ -378,6 +458,7 @@ export default function AthleteDetail() {
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                   <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>Metric</th>
                   <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>Current</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>7d avg</th>
                   <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>7d ago</th>
                   <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>14d ago</th>
                   <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>30d ago</th>
@@ -389,6 +470,7 @@ export default function AthleteDetail() {
                   <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
                     <td style={{ padding: '0.75rem', fontWeight: 600 }}>{row.metric}</td>
                     <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 700 }}>{row.current}</td>
+                    <td style={{ padding: '0.75rem', textAlign: 'right', color: COLORS.gold, fontWeight: 600 }}>{row.rolling7d}</td>
                     <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day7}</td>
                     <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day14}</td>
                     <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day30}</td>
@@ -400,13 +482,14 @@ export default function AthleteDetail() {
           </div>
           {radarData.length > 0 && (
             <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Reputation: current vs 30d ago</h3>
+              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Reputation: current vs 7-day average vs 30d ago</h3>
               <ResponsiveContainer width="100%" height={350}>
                 <RadarChart data={radarData}>
                   <PolarGrid stroke={COLORS.border} />
                   <PolarAngleAxis dataKey="metric" stroke="#94a3b8" />
                   <PolarRadiusAxis stroke="#64748b" />
                   <Radar name="Current" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.3} strokeWidth={2} />
+                  <Radar name="7-day avg" dataKey="rolling7d" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} strokeDasharray="3 3" />
                   <Radar name="30d ago" dataKey="day30" stroke="#64748b" fill="#64748b" fillOpacity={0.1} strokeDasharray="5 5" />
                   <Legend />
                 </RadarChart>
