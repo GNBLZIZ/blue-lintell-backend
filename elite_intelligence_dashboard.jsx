@@ -8,8 +8,54 @@ const EliteAthleteIntelligenceDashboard = () => {
   const [alertLevel, setAlertLevel] = useState('nominal'); // nominal, elevated, critical
   const [isLive, setIsLive] = useState(true);
 
+  // NEW: Real data from API
+  const [athleteData, setAthleteData] = useState(null);
+  const [rollingData, setRollingData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Simulated real-time data (in production, this comes from backend)
   const [currentTimestamp, setCurrentTimestamp] = useState(new Date());
+
+  // NEW: Fetch athlete data from backend
+  const ATHLETE_ID = '1574bdb1-db3d-44e9-8011-7e424b27afc6'; // Trippier
+  const API_BASE = 'https://blue-lintell-backend-production-4040.up.railway.app';
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch rolling average data
+        const rollingResponse = await fetch(`${API_BASE}/api/athlete/${ATHLETE_ID}/rolling/7`);
+        if (!rollingResponse.ok) {
+          throw new Error('Failed to fetch rolling average data');
+        }
+        const rollingJson = await rollingResponse.json();
+        setRollingData(rollingJson);
+        
+        // Fetch full athlete data for perception details
+        const athleteResponse = await fetch(`${API_BASE}/api/athlete/${ATHLETE_ID}`);
+        if (!athleteResponse.ok) {
+          throw new Error('Failed to fetch athlete data');
+        }
+        const athleteJson = await athleteResponse.json();
+        setAthleteData(athleteJson);
+        
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+    
+    // Refresh data every 5 minutes
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -31,7 +77,69 @@ const EliteAthleteIntelligenceDashboard = () => {
     border: '#1e293b'
   };
 
-  // === MOCK DATA WITH TEMPORAL TRENDS ===
+  // === CONVERT API DATA TO DASHBOARD FORMAT ===
+  
+  // Convert rolling data to scoreEvolution format
+  const scoreEvolution = rollingData ? [
+    { 
+      metric: 'Sentiment', 
+      current: rollingData.scores.sentiment.current,
+      rolling_avg: rollingData.scores.sentiment.rolling_avg,
+      change_from_yesterday: rollingData.scores.sentiment.change_from_yesterday,
+      trend: rollingData.scores.sentiment.trend,
+      change: rollingData.scores.sentiment.change_from_yesterday > 0 ? `+${rollingData.scores.sentiment.change_from_yesterday}` : `${rollingData.scores.sentiment.change_from_yesterday}`
+    },
+    { 
+      metric: 'Credibility', 
+      current: rollingData.scores.credibility.current,
+      rolling_avg: rollingData.scores.credibility.rolling_avg,
+      change_from_yesterday: rollingData.scores.credibility.change_from_yesterday,
+      trend: rollingData.scores.credibility.trend,
+      change: rollingData.scores.credibility.change_from_yesterday > 0 ? `+${rollingData.scores.credibility.change_from_yesterday}` : `${rollingData.scores.credibility.change_from_yesterday}`
+    },
+    { 
+      metric: 'Likeability', 
+      current: rollingData.scores.likeability.current,
+      rolling_avg: rollingData.scores.likeability.rolling_avg,
+      change_from_yesterday: rollingData.scores.likeability.change_from_yesterday,
+      trend: rollingData.scores.likeability.trend,
+      change: rollingData.scores.likeability.change_from_yesterday > 0 ? `+${rollingData.scores.likeability.change_from_yesterday}` : `${rollingData.scores.likeability.change_from_yesterday}`
+    },
+    { 
+      metric: 'Leadership', 
+      current: rollingData.scores.leadership.current,
+      rolling_avg: rollingData.scores.leadership.rolling_avg,
+      change_from_yesterday: rollingData.scores.leadership.change_from_yesterday,
+      trend: rollingData.scores.leadership.trend,
+      change: rollingData.scores.leadership.change_from_yesterday > 0 ? `+${rollingData.scores.leadership.change_from_yesterday}` : `${rollingData.scores.leadership.change_from_yesterday}`
+    },
+    { 
+      metric: 'Authenticity', 
+      current: rollingData.scores.authenticity.current,
+      rolling_avg: rollingData.scores.authenticity.rolling_avg,
+      change_from_yesterday: rollingData.scores.authenticity.change_from_yesterday,
+      trend: rollingData.scores.authenticity.trend,
+      change: rollingData.scores.authenticity.change_from_yesterday > 0 ? `+${rollingData.scores.authenticity.change_from_yesterday}` : `${rollingData.scores.authenticity.change_from_yesterday}`
+    },
+    { 
+      metric: 'Controversy', 
+      current: rollingData.scores.controversy.current,
+      rolling_avg: rollingData.scores.controversy.rolling_avg,
+      change_from_yesterday: rollingData.scores.controversy.change_from_yesterday,
+      trend: rollingData.scores.controversy.trend,
+      change: rollingData.scores.controversy.change_from_yesterday > 0 ? `+${rollingData.scores.controversy.change_from_yesterday}` : `${rollingData.scores.controversy.change_from_yesterday}`
+    },
+    { 
+      metric: 'Relevance', 
+      current: rollingData.scores.relevance.current,
+      rolling_avg: rollingData.scores.relevance.rolling_avg,
+      change_from_yesterday: rollingData.scores.relevance.change_from_yesterday,
+      trend: rollingData.scores.relevance.trend,
+      change: rollingData.scores.relevance.change_from_yesterday > 0 ? `+${rollingData.scores.relevance.change_from_yesterday}` : `${rollingData.scores.relevance.change_from_yesterday}`
+    }
+  ] : [];
+
+  // === MOCK DATA WITH TEMPORAL TRENDS (KEEP FOR CHARTS) ===
   
   // 30-day historical sentiment data
   const sentimentHistory = Array.from({ length: 30 }, (_, i) => {
@@ -47,22 +155,11 @@ const EliteAthleteIntelligenceDashboard = () => {
     };
   });
 
-  // Score evolution over time (7, 14, 30 days)
-  const scoreEvolution = [
-    { metric: 'Sentiment', current: 72, day7: 68, day14: 65, day30: 70, trend: 'up', change: '+4' },
-    { metric: 'Credibility', current: 85, day7: 84, day14: 83, day30: 82, trend: 'up', change: '+3' },
-    { metric: 'Likeability', current: 75, day7: 76, day14: 77, day30: 78, trend: 'down', change: '-3' },
-    { metric: 'Leadership', current: 80, day7: 79, day14: 78, day30: 76, trend: 'up', change: '+4' },
-    { metric: 'Authenticity', current: 77, day7: 77, day14: 76, day30: 75, trend: 'stable', change: '0' },
-    { metric: 'Controversy', current: 28, day7: 32, day14: 35, day30: 30, trend: 'down', change: '-7' },
-    { metric: 'Relevance', current: 82, day7: 78, day14: 75, day30: 73, trend: 'up', change: '+9' }
-  ];
-
   // Platform engagement trends
   const platformTrends = [
-    { platform: 'Twitter', followers: 2847000, change: '+12.4K', changePercent: 0.44, engagement: 3.2, posts: 156, sentiment: 71 },
-    { platform: 'Instagram', followers: 4521000, change: '+28.1K', changePercent: 0.62, engagement: 5.8, posts: 89, sentiment: 78 },
-    { platform: 'News', mentions: 1247, change: '+89', changePercent: 7.7, sentiment: 68, reach: '12.4M', impact: 'High' },
+    { platform: 'Twitter', followers: athleteData?.twitter_followers || 2847000, change: '+12.4K', changePercent: 0.44, engagement: 3.2, posts: 156, sentiment: 71 },
+    { platform: 'Instagram', followers: athleteData?.instagram_followers || 4521000, change: '+28.1K', changePercent: 0.62, engagement: 5.8, posts: 89, sentiment: 78 },
+    { platform: 'News', mentions: athleteData?.news_articles_count || 1247, change: '+89', changePercent: 7.7, sentiment: 68, reach: '12.4M', impact: 'High' },
     { platform: 'Forums', mentions: 3421, change: '+234', changePercent: 7.3, sentiment: 64, reach: '2.1M', impact: 'Medium' }
   ];
 
@@ -131,8 +228,8 @@ const EliteAthleteIntelligenceDashboard = () => {
     }
   ];
 
-  // Perception breakdown for each score (real insights)
-  const perceptionDetails = {
+  // Perception breakdown for each score (use real data from API if available)
+  const perceptionDetails = athleteData?.perception_details || {
     Sentiment: {
       score: 72,
       summary: 'Overall sentiment: Positive. Strong professional support.',
@@ -221,8 +318,9 @@ const EliteAthleteIntelligenceDashboard = () => {
   };
 
   const calculateOverallAlertLevel = () => {
-    const sentiment = scoreEvolution.find(s => s.metric === 'Sentiment').current;
-    const controversy = scoreEvolution.find(s => s.metric === 'Controversy').current;
+    if (!rollingData) return 'nominal';
+    const sentiment = rollingData.scores.sentiment.rolling_avg;
+    const controversy = rollingData.scores.controversy.rolling_avg;
     
     if (sentiment < thresholds.sentiment.critical || controversy > thresholds.controversy.critical) {
       return 'critical';
@@ -233,6 +331,74 @@ const EliteAthleteIntelligenceDashboard = () => {
   };
 
   const overallAlert = calculateOverallAlertLevel();
+
+  // === LOADING & ERROR STATES ===
+  
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)',
+        color: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '18px', color: COLORS.gold, marginBottom: '16px' }}>
+            Loading athlete intelligence...
+          </div>
+          <div style={{ fontSize: '14px', color: '#94a3b8' }}>
+            Fetching real-time reputation data
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)',
+        color: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{ textAlign: 'center', maxWidth: '500px', padding: '24px' }}>
+          <AlertTriangle size={48} color={COLORS.danger} style={{ marginBottom: '16px' }} />
+          <div style={{ fontSize: '18px', color: COLORS.danger, marginBottom: '16px' }}>
+            Error Loading Data
+          </div>
+          <div style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '24px' }}>
+            {error}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '12px 24px',
+              background: COLORS.gold,
+              border: 'none',
+              borderRadius: '6px',
+              color: COLORS.navy,
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!rollingData || !athleteData) {
+    return null;
+  }
 
   // === SOPHISTICATED UI COMPONENTS ===
 
@@ -294,20 +460,20 @@ const EliteAthleteIntelligenceDashboard = () => {
             )}
           </div>
           <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px' }}>
-            Last updated: {currentTimestamp.toLocaleTimeString()} • {alerts.filter(a => a.severity !== 'nominal').length} active alerts
+            Last updated: {currentTimestamp.toLocaleTimeString()} • {alerts.filter(a => a.severity !== 'nominal').length} active alerts • 7-day rolling average ({rollingData.period_start} to {rollingData.period_end})
           </div>
         </div>
       </div>
     );
   };
 
-  const ScoreCard = ({ metric, current, trend, change, threshold }) => {
+  const ScoreCard = ({ metric, current, rolling_avg, trend, change, threshold }) => {
     const [showDetails, setShowDetails] = useState(false);
     const trendColor = trend === 'up' ? COLORS.success : trend === 'down' ? COLORS.danger : COLORS.neutral;
     const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Activity;
     
     // Determine if score is in danger zone
-    const isDanger = metric === 'Controversy' ? current > thresholds.controversy.warning : current < thresholds.sentiment.warning;
+    const isDanger = metric === 'Controversy' ? rolling_avg > thresholds.controversy.warning : rolling_avg < thresholds.sentiment.warning;
     
     const details = perceptionDetails[metric];
     
@@ -354,9 +520,9 @@ const EliteAthleteIntelligenceDashboard = () => {
         <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           {metric}
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '8px' }}>
           <span style={{ fontSize: '42px', fontWeight: '700', color: '#ffffff' }}>
-            {current}
+            {rolling_avg || current}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <TrendIcon size={16} color={trendColor} />
@@ -366,12 +532,25 @@ const EliteAthleteIntelligenceDashboard = () => {
           </div>
         </div>
         
+        {/* 7-day average label */}
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#64748b', 
+          marginBottom: showDetails ? '12px' : '0',
+          fontWeight: '600',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px'
+        }}>
+          7-day average
+        </div>
+        
         {/* Summary */}
         {details && (
           <div style={{ 
             fontSize: '13px', 
             color: '#94a3b8', 
             marginBottom: showDetails ? '12px' : '0',
+            marginTop: '8px',
             lineHeight: '1.5'
           }}>
             {details.summary}
@@ -411,7 +590,7 @@ const EliteAthleteIntelligenceDashboard = () => {
         <div style={{ height: '32px', marginTop: '12px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={sentimentHistory.slice(-7).map((d, i) => ({ 
-              value: current + (Math.random() - 0.5) * 10 
+              value: (rolling_avg || current) + (Math.random() - 0.5) * 5 
             }))}>
               <defs>
                 <linearGradient id={`gradient-${metric}`} x1="0" y1="0" x2="0" y2="1">
@@ -530,7 +709,7 @@ const EliteAthleteIntelligenceDashboard = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
               <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '700' }}>
-                KIERAN TRIPPIER
+                {athleteData.athlete_name || 'KIERAN TRIPPIER'}
               </h1>
               <span style={{
                 background: `${COLORS.gold}20`,
@@ -769,11 +948,9 @@ const EliteAthleteIntelligenceDashboard = () => {
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                     <th style={{ textAlign: 'left', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Metric</th>
+                    <th style={{ textAlign: 'right', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>7-Day Avg</th>
                     <th style={{ textAlign: 'right', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Current</th>
-                    <th style={{ textAlign: 'right', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>7D Ago</th>
-                    <th style={{ textAlign: 'right', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>14D Ago</th>
-                    <th style={{ textAlign: 'right', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>30D Ago</th>
-                    <th style={{ textAlign: 'right', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>30D Change</th>
+                    <th style={{ textAlign: 'right', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Change</th>
                     <th style={{ textAlign: 'center', padding: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Trend</th>
                   </tr>
                 </thead>
@@ -781,10 +958,8 @@ const EliteAthleteIntelligenceDashboard = () => {
                   {scoreEvolution.map((score, index) => (
                     <tr key={score.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
                       <td style={{ padding: '16px', fontSize: '14px', fontWeight: '600' }}>{score.metric}</td>
-                      <td style={{ padding: '16px', textAlign: 'right', fontSize: '18px', fontWeight: '700', color: '#ffffff' }}>{score.current}</td>
-                      <td style={{ padding: '16px', textAlign: 'right', fontSize: '14px', color: '#94a3b8' }}>{score.day7}</td>
-                      <td style={{ padding: '16px', textAlign: 'right', fontSize: '14px', color: '#94a3b8' }}>{score.day14}</td>
-                      <td style={{ padding: '16px', textAlign: 'right', fontSize: '14px', color: '#94a3b8' }}>{score.day30}</td>
+                      <td style={{ padding: '16px', textAlign: 'right', fontSize: '18px', fontWeight: '700', color: '#ffffff' }}>{score.rolling_avg}</td>
+                      <td style={{ padding: '16px', textAlign: 'right', fontSize: '14px', color: '#94a3b8' }}>{score.current}</td>
                       <td style={{ 
                         padding: '16px', 
                         textAlign: 'right', 
@@ -816,7 +991,7 @@ const EliteAthleteIntelligenceDashboard = () => {
             </div>
           </div>
 
-          {/* Radar Comparison - Current vs Historical */}
+          {/* Radar Comparison - Current vs 7-Day Average */}
           <div style={{
             background: COLORS.cardBg,
             border: `1px solid ${COLORS.border}`,
@@ -824,19 +999,19 @@ const EliteAthleteIntelligenceDashboard = () => {
             padding: '24px'
           }}>
             <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', fontWeight: '700', color: COLORS.gold }}>
-              REPUTATION PROFILE: CURRENT VS 30 DAYS AGO
+              REPUTATION PROFILE: CURRENT VS 7-DAY AVERAGE
             </h3>
             <ResponsiveContainer width="100%" height={400}>
               <RadarChart data={scoreEvolution.map(s => ({
                 metric: s.metric,
                 current: s.current,
-                day30: s.day30
+                rolling_avg: s.rolling_avg
               }))}>
                 <PolarGrid stroke={COLORS.border} />
                 <PolarAngleAxis dataKey="metric" stroke="#94a3b8" style={{ fontSize: '12px' }} />
                 <PolarRadiusAxis stroke="#64748b" />
                 <Radar name="Current" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.3} strokeWidth={2} />
-                <Radar name="30 Days Ago" dataKey="day30" stroke="#64748b" fill="#64748b" fillOpacity={0.1} strokeWidth={1} strokeDasharray="5 5" />
+                <Radar name="7-Day Average" dataKey="rolling_avg" stroke="#64748b" fill="#64748b" fillOpacity={0.1} strokeWidth={1} strokeDasharray="5 5" />
                 <Legend />
               </RadarChart>
             </ResponsiveContainer>
@@ -959,7 +1134,7 @@ const EliteAthleteIntelligenceDashboard = () => {
               marginBottom: '24px'
             }}>
               <p style={{ marginBottom: '16px' }}>
-                <strong style={{ color: COLORS.gold }}>Public Perception:</strong> {athleteData.name || 'Kieran Trippier'} maintains a <strong>predominantly positive</strong> reputation across digital platforms. 
+                <strong style={{ color: COLORS.gold }}>Public Perception:</strong> {athleteData.athlete_name || 'Kieran Trippier'} maintains a <strong>predominantly positive</strong> reputation across digital platforms. 
                 Fan loyalty remains strong on Twitter/X with supporters consistently advocating for his retention at the club. 
                 Instagram engagement is particularly high, with family-focused and personal content resonating well with followers.
               </p>
@@ -1015,7 +1190,7 @@ const EliteAthleteIntelligenceDashboard = () => {
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '32px', fontWeight: '700', color: COLORS.gold, marginBottom: '8px' }}>
-                  2M+
+                  {athleteData.instagram_followers ? `${(athleteData.instagram_followers / 1000000).toFixed(1)}M` : '2M+'}
                 </div>
                 <div style={{ fontSize: '13px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Instagram Followers<br/>High Engagement
