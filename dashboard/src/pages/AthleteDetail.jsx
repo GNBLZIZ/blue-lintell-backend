@@ -452,45 +452,99 @@ export default function AthleteDetail() {
       {activeTab === 'temporal' && (
         <>
           <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', overflowX: 'auto' }}>
-            <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Score evolution</h3>
+            <h3 style={{ margin: '0 0 0.5rem', color: COLORS.gold }}>Reputation scores over time</h3>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              <strong style={{ color: COLORS.gold }}>7-Day Average</strong> shows the smoothed trend (focus here). Latest Refresh may fluctuate daily based on recent data collection.
+            </p>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>Metric</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>Current</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>7d avg</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>7d ago</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>14d ago</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>30d ago</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>Change</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Score</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: COLORS.gold, textTransform: 'uppercase', fontWeight: 700 }}>
+                    7-Day Average
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 400, marginTop: '2px' }}>(primary metric)</div>
+                  </th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase' }}>
+                    Latest Refresh
+                    <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 400, marginTop: '2px' }}>(may vary)</div>
+                  </th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>1 Week Ago</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>1 Month Ago</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>30-Day Trend</th>
                 </tr>
               </thead>
               <tbody>
-                {scoreEvolution.map((row) => (
-                  <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
-                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>{row.metric}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 700 }}>{row.current}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: COLORS.gold, fontWeight: 600 }}>{row.rolling7d}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day7}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day14}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day30}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'right', color: row.trend === 'up' ? COLORS.success : row.trend === 'down' ? COLORS.danger : COLORS.neutral, fontWeight: 600 }}>{row.change}</td>
-                  </tr>
-                ))}
+                {scoreEvolution.map((row) => {
+                  // Calculate trend text
+                  const changeValue = row.current - (row.day30 || row.current);
+                  let trendText = '→ Stable';
+                  let trendColor = COLORS.neutral;
+                  
+                  if (changeValue !== 0) {
+                    // For Controversy, down is good, up is bad
+                    if (row.metric === 'Controversy') {
+                      if (changeValue > 0) {
+                        trendText = `↗ Rising (+${changeValue})`;
+                        trendColor = COLORS.danger;
+                      } else {
+                        trendText = `↘ Falling (${changeValue})`;
+                        trendColor = COLORS.success;
+                      }
+                    } else {
+                      // For other metrics, up is good, down is bad
+                      if (changeValue > 0) {
+                        trendText = `↗ Improving (+${changeValue})`;
+                        trendColor = COLORS.success;
+                      } else {
+                        trendText = `↘ Declining (${changeValue})`;
+                        trendColor = COLORS.danger;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
+                      <td style={{ padding: '0.75rem', fontWeight: 600 }}>{row.metric}</td>
+                      {/* 7-Day Average - PRIMARY METRIC */}
+                      <td style={{ 
+                        padding: '0.75rem', 
+                        textAlign: 'right', 
+                        fontWeight: 700, 
+                        fontSize: '1.25rem',
+                        color: COLORS.gold
+                      }}>
+                        {row.rolling7d}
+                      </td>
+                      {/* Latest Refresh - DE-EMPHASIZED */}
+                      <td style={{ 
+                        padding: '0.75rem', 
+                        textAlign: 'right', 
+                        color: '#64748b',
+                        fontSize: '0.95rem'
+                      }}>
+                        {row.current}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day7}</td>
+                      <td style={{ padding: '0.75rem', textAlign: 'right', color: '#94a3b8' }}>{row.day30}</td>
+                      <td style={{ padding: '0.75rem', color: trendColor, fontWeight: 600, fontSize: '0.9rem' }}>{trendText}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           {radarData.length > 0 && (
             <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Reputation: current vs 7-day average vs 30d ago</h3>
+              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Reputation profile comparison</h3>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1rem' }}>Comparing latest scores (solid gold) against 7-day rolling average (dashed orange) and 1 month ago (dashed grey)</p>
               <ResponsiveContainer width="100%" height={350}>
                 <RadarChart data={radarData}>
                   <PolarGrid stroke={COLORS.border} />
                   <PolarAngleAxis dataKey="metric" stroke="#94a3b8" />
                   <PolarRadiusAxis stroke="#64748b" />
-                  <Radar name="Current" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.3} strokeWidth={2} />
+                  <Radar name="Latest score" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.3} strokeWidth={2} />
                   <Radar name="7-day avg" dataKey="rolling7d" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} strokeDasharray="3 3" />
-                  <Radar name="30d ago" dataKey="day30" stroke="#64748b" fill="#64748b" fillOpacity={0.1} strokeDasharray="5 5" />
+                  <Radar name="1 month ago" dataKey="day30" stroke="#64748b" fill="#64748b" fillOpacity={0.1} strokeDasharray="5 5" />
                   <Legend />
                 </RadarChart>
               </ResponsiveContainer>
