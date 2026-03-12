@@ -26,6 +26,17 @@ const SCORE_FIELDS = [
   'authenticity_score', 'controversy_score', 'relevance_score', 'influence_score'
 ];
 
+// INFLUENCE SCORE RATIONALE
+const INFLUENCE_RATIONALE = {
+  summary: "Combined measure of reach and impact across all platforms. Reflects total audience size, engagement quality, and media amplification.",
+  breakdown: [
+    "Follower base across Twitter and Instagram provides foundation score",
+    "Engagement rates (likes, comments, shares) multiply base impact",
+    "News coverage and media mentions add authority and amplification",
+    "Higher engagement with smaller audience can outperform large passive following"
+  ]
+};
+
 export default function AthleteDetail() {
   const { athleteId } = useParams();
   const navigate = useNavigate();
@@ -39,6 +50,7 @@ export default function AthleteDetail() {
   const [activeTab, setActiveTab] = useState('overview');
   const [expandedScore, setExpandedScore] = useState(null);
   const [disclaimerVisible, setDisclaimerVisible] = useState(true);
+  const [cardsVisible, setCardsVisible] = useState(false);
 
   const loadDashboard = () => {
     setError(null);
@@ -85,6 +97,13 @@ export default function AthleteDetail() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Staggered card entrance animation
+  useEffect(() => {
+    if (dashboard) {
+      setTimeout(() => setCardsVisible(true), 100);
+    }
+  }, [dashboard]);
+
   const handleRefresh = () => {
     if (!dashboard) return;
     setRefreshing(true);
@@ -128,19 +147,15 @@ export default function AthleteDetail() {
     const instagramFollowers = dashboard.instagram_followers || 0;
     const totalFollowers = twitterFollowers + instagramFollowers;
     
-    // Base score from follower count (normalize to 0-100)
     let baseScore = Math.min(100, Math.sqrt(totalFollowers / 10000) * 50);
     
-    // Engagement multiplier (0.5 to 1.5)
     const twitterEngagement = dashboard.avg_engagement_rate_twitter || 0;
     const instagramEngagement = dashboard.avg_engagement_rate_instagram || 0;
     const avgEngagement = (twitterEngagement + instagramEngagement) / 2;
     const engagementMultiplier = 0.5 + (avgEngagement / 10);
     
-    // News coverage bonus (up to +20 points)
     const newsBonus = Math.min(20, (dashboard.news_articles_count || 0) * 2);
     
-    // Final calculation
     let influence = (baseScore * engagementMultiplier) + newsBonus;
     influence = Math.min(100, Math.max(0, Math.round(influence)));
     
@@ -152,7 +167,7 @@ export default function AthleteDetail() {
     const field = SCORE_FIELDS[i];
     let currentValue = dashboard[field] ?? '—';
     
-    // Special handling for Influence (calculated field)
+    // Special handling for Influence
     if (field === 'influence_score') {
       currentValue = calculateInfluence();
     }
@@ -167,13 +182,17 @@ export default function AthleteDetail() {
       trend = rollingData.scores[field].trend ?? 'stable';
     }
     
+    // Add Influence rationale
+    const details = label === 'Influence' ? INFLUENCE_RATIONALE : pd[label];
+    
     return {
       label,
       value: rollingAvg,
       currentValue,
       changeFromYesterday,
       trend,
-      key: field
+      key: field,
+      details
     };
   });
 
@@ -200,7 +219,6 @@ export default function AthleteDetail() {
     const field = SCORE_FIELDS[i];
     let current = dashboard[field] ?? 0;
     
-    // Special handling for Influence
     if (field === 'influence_score') {
       current = calculateInfluence();
     }
@@ -277,7 +295,6 @@ export default function AthleteDetail() {
     return String(n);
   };
 
-  // Custom Tooltip for charts
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -292,8 +309,99 @@ export default function AthleteDetail() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem', paddingBottom: disclaimerVisible ? '5rem' : '2rem' }}>
+      {/* PREMIUM ANIMATIONS & STYLES */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideInStagger {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+        
+        @keyframes shimmer {
+          0% { background-position: -1000px 0; }
+          100% { background-position: 1000px 0; }
+        }
+        
+        @keyframes borderGlow {
+          0%, 100% { box-shadow: 0 0 5px rgba(201, 169, 97, 0.3); }
+          50% { box-shadow: 0 0 20px rgba(201, 169, 97, 0.6); }
+        }
+        
+        .fade-in {
+          animation: fadeIn 0.6s ease-out;
+        }
+        
+        .score-card {
+          animation: slideInStagger 0.5s ease-out backwards;
+        }
+        
+        .score-card:nth-child(1) { animation-delay: 0.05s; }
+        .score-card:nth-child(2) { animation-delay: 0.1s; }
+        .score-card:nth-child(3) { animation-delay: 0.15s; }
+        .score-card:nth-child(4) { animation-delay: 0.2s; }
+        .score-card:nth-child(5) { animation-delay: 0.25s; }
+        .score-card:nth-child(6) { animation-delay: 0.3s; }
+        .score-card:nth-child(7) { animation-delay: 0.35s; }
+        .score-card:nth-child(8) { animation-delay: 0.4s; }
+        
+        .change-indicator {
+          animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .gold-shimmer {
+          background: linear-gradient(90deg, transparent, rgba(201, 169, 97, 0.3), transparent);
+          background-size: 1000px 100%;
+          animation: shimmer 3s infinite;
+        }
+        
+        .critical-glow {
+          animation: borderGlow 2s ease-in-out infinite;
+        }
+        
+        .score-grid {
+          display: grid;
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+        
+        @media (min-width: 1024px) {
+          .score-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+        
+        @media (min-width: 640px) and (max-width: 1023px) {
+          .score-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        
+        @media (max-width: 639px) {
+          .score-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        
+        .progress-ring {
+          transform: rotate(-90deg);
+        }
+        
+        .progress-ring-circle {
+          transition: stroke-dashoffset 1s ease;
+        }
+      `}</style>
+
       {/* Header */}
-      <div style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+      <div className="fade-in" style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <button className="btn secondary" style={{ marginRight: '0.5rem' }} onClick={() => navigate('/')}>← Back</button>
@@ -321,20 +429,15 @@ export default function AthleteDetail() {
                 </span>
               )}
             </p>
-            {pd.data_quality && (pd.data_quality.twitter_ok === false || pd.data_quality.sentiment_ok === false) && (
-              <p style={{ margin: '0.5rem 0 0', padding: '0.4rem 0.6rem', background: 'rgba(245,158,11,0.15)', borderRadius: 6, fontSize: '0.8rem' }}>
-                ⚠ Limited data: {pd.data_quality.twitter_ok === false && 'Twitter unavailable. '}{pd.data_quality.sentiment_ok === false && 'Sentiment unavailable.'}
-              </p>
-            )}
           </div>
-          <button className="btn" onClick={handleRefresh} disabled={refreshing} style={{ background: COLORS.gold, color: COLORS.navy, fontWeight: 700 }}>
+          <button className="btn" onClick={handleRefresh} disabled={refreshing} style={{ background: COLORS.gold, color: COLORS.navy, fontWeight: 700, boxShadow: '0 4px 12px rgba(201,169,97,0.3)' }}>
             {refreshing ? 'Refreshing…' : 'Refresh data'}
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: `2px solid ${COLORS.border}` }}>
+      <div className="fade-in" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: `2px solid ${COLORS.border}` }}>
         {['overview', 'temporal', 'alerts', 'intelligence'].map((tab) => (
           <button
             key={tab}
@@ -349,7 +452,8 @@ export default function AthleteDetail() {
               fontWeight: 700,
               textTransform: 'uppercase',
               cursor: 'pointer',
-              letterSpacing: '0.5px'
+              letterSpacing: '0.5px',
+              transition: 'all 0.3s ease'
             }}
           >
             {tab}
@@ -360,39 +464,8 @@ export default function AthleteDetail() {
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
         <>
-          {/* FIXED LAYOUT SCORE CARDS - 4 + 4 for perfect balance */}
-          <style>{`
-            .score-grid {
-              display: grid;
-              gap: 1.5rem;
-              margin-bottom: 2rem;
-            }
-            
-            /* Desktop: 4 columns */
-            @media (min-width: 1024px) {
-              .score-grid {
-                grid-template-columns: repeat(4, 1fr);
-              }
-            }
-            
-            /* Tablet: 2 columns */
-            @media (min-width: 640px) and (max-width: 1023px) {
-              .score-grid {
-                grid-template-columns: repeat(2, 1fr);
-              }
-            }
-            
-            /* Mobile: 1 column */
-            @media (max-width: 639px) {
-              .score-grid {
-                grid-template-columns: 1fr;
-              }
-            }
-          `}</style>
-          
           <div className="score-grid">
-            {scores.map((s) => {
-              const details = pd[s.label];
+            {scores.map((s, idx) => {
               const isExpanded = expandedScore === s.label;
               const isDanger = s.label === 'Controversy' ? (s.value || 0) > thresholds.controversy.warning : (s.value || 0) < thresholds.sentiment.warning;
               
@@ -405,43 +478,66 @@ export default function AthleteDetail() {
                 }
               }
               
-              // Determine border color - use gold for high performers
               let borderColor = COLORS.border;
+              let hasShimmer = false;
               if (s.label === 'Controversy') {
-                if (s.value < 20) borderColor = COLORS.success;
+                if (s.value < 20) { borderColor = COLORS.success; hasShimmer = true; }
                 else if (s.value > 30) borderColor = COLORS.danger;
               } else {
-                if (s.value >= 80) borderColor = COLORS.gold;
+                if (s.value >= 80) { borderColor = COLORS.gold; hasShimmer = true; }
                 else if (s.value < 60) borderColor = COLORS.danger + '60';
               }
+              
+              // Progress ring calculation
+              const circumference = 2 * Math.PI * 45;
+              const offset = circumference - (s.value / 100) * circumference;
               
               return (
                 <div
                   key={s.label}
-                  className="score-card"
+                  className={`score-card ${hasShimmer ? 'gold-shimmer' : ''}`}
                   onClick={() => setExpandedScore(isExpanded ? null : s.label)}
                   style={{
-                    background: COLORS.cardBg,
+                    background: `linear-gradient(135deg, ${COLORS.cardBg} 0%, rgba(26, 58, 92, 0.3) 100%)`,
                     border: `2px solid ${borderColor}`,
                     borderRadius: 12,
                     padding: '2.5rem',
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)',
-                    transform: isExpanded ? 'translateY(-2px)' : 'none'
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.15)',
+                    transform: isExpanded ? 'translateY(-4px) scale(1.02)' : 'none',
+                    position: 'relative',
+                    overflow: 'hidden'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4), 0 4px 12px rgba(201,169,97,0.2)';
+                    e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.5), 0 5px 16px rgba(201,169,97,0.25)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = isExpanded ? 'translateY(-2px)' : 'none';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)';
+                    e.currentTarget.style.transform = isExpanded ? 'translateY(-4px) scale(1.02)' : 'none';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.15)';
                   }}
                 >
+                  {/* Progress Ring Background */}
+                  <svg style={{ position: 'absolute', top: '1rem', right: '1rem', opacity: 0.15 }} width="100" height="100">
+                    <circle
+                      className="progress-ring"
+                      stroke={s.label === 'Controversy' ? (s.value < 20 ? COLORS.success : COLORS.danger) : (s.value >= 80 ? COLORS.gold : '#94a3b8')}
+                      strokeWidth="3"
+                      fill="transparent"
+                      r="45"
+                      cx="50"
+                      cy="50"
+                      style={{
+                        strokeDasharray: `${circumference} ${circumference}`,
+                        strokeDashoffset: offset
+                      }}
+                    />
+                  </svg>
+                  
                   <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
                   
-                  {/* MASSIVE SCORE NUMBER with color coding */}
+                  {/* MASSIVE SCORE NUMBER */}
                   <div style={{ 
                     fontSize: '3.5rem', 
                     fontWeight: 800, 
@@ -449,21 +545,22 @@ export default function AthleteDetail() {
                     marginBottom: '0.5rem',
                     color: s.label === 'Controversy' 
                       ? (s.value > 40 ? COLORS.danger : s.value > 30 ? COLORS.warning : COLORS.gold)
-                      : (s.value >= 80 ? COLORS.gold : s.value < 60 ? COLORS.danger : '#fff')
+                      : (s.value >= 80 ? COLORS.gold : s.value < 60 ? COLORS.danger : '#fff'),
+                    textShadow: hasShimmer ? `0 0 20px ${COLORS.gold}40` : 'none'
                   }}>
                     {s.value ?? '—'}
                   </div>
                   
-                  {/* BIGGER Change indicator with more prominence */}
+                  {/* PROMINENT Change indicator */}
                   {s.changeFromYesterday !== null && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.5rem', background: `${changeColor}15`, borderRadius: 6 }}>
-                      <span style={{ color: changeColor, fontSize: '1.2rem', fontWeight: 800 }}>
+                    <div className="change-indicator" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.75rem', background: `${changeColor}20`, borderRadius: 8, border: `2px solid ${changeColor}40` }}>
+                      <span style={{ color: changeColor, fontSize: '1.4rem', fontWeight: 900 }}>
                         {s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '●'}
                       </span>
-                      <span style={{ color: changeColor, fontSize: '1.1rem', fontWeight: 700 }}>
+                      <span style={{ color: changeColor, fontSize: '1.3rem', fontWeight: 800 }}>
                         {s.changeFromYesterday > 0 ? '+' : ''}{s.changeFromYesterday}
                       </span>
-                      <span style={{ color: changeColor, fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 600, marginLeft: '0.25rem' }}>
+                      <span style={{ color: changeColor, fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 700, marginLeft: '0.25rem' }}>
                         vs yesterday
                       </span>
                     </div>
@@ -471,19 +568,21 @@ export default function AthleteDetail() {
                   
                   {/* 7-day average label */}
                   {rollingData && (
-                    <div style={{ fontSize: '0.75rem', color: COLORS.gold, marginBottom: '0.75rem', fontWeight: 600 }}>7-day rolling average</div>
+                    <div style={{ fontSize: '0.8rem', color: COLORS.gold, marginBottom: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>7-DAY ROLLING AVERAGE</div>
                   )}
                   
-                  {(details?.summary || isExpanded) && (
+                  {(s.details?.summary || isExpanded) && (
                     <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.75rem', lineHeight: 1.5, borderTop: `1px solid ${COLORS.border}`, paddingTop: '0.75rem' }}>
-                      {details?.summary || `Score: ${s.value ?? '—'}. Click for details.`}
+                      {s.details?.summary || `Score: ${s.value ?? '—'}. Click for details.`}
                     </div>
                   )}
                   <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: COLORS.gold, fontWeight: 600 }}>{isExpanded ? '▲ Collapse' : '▼ Expand rationale'}</div>
-                  {isExpanded && (details?.breakdown?.length > 0 ? (
-                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: `1px solid ${COLORS.border}`, fontSize: '0.8rem', color: '#cbd5e1' }}>
-                      {details.breakdown.map((line, i) => (
-                        <div key={i} style={{ marginBottom: '0.35rem' }}>• {line}</div>
+                  
+                  {/* NO BULLETS - Clean paragraph format */}
+                  {isExpanded && (s.details?.breakdown?.length > 0 ? (
+                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: `1px solid ${COLORS.border}`, fontSize: '0.8rem', color: '#cbd5e1', lineHeight: 1.6 }}>
+                      {s.details.breakdown.map((line, i) => (
+                        <p key={i} style={{ margin: i > 0 ? '0.75rem 0 0' : 0 }}>{line}</p>
                       ))}
                     </div>
                   ) : (
@@ -494,17 +593,16 @@ export default function AthleteDetail() {
             })}
           </div>
 
-          {/* CHARTS ROW - Sentiment + Radar */}
+          {/* CHARTS ROW */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-            {/* Sentiment Chart */}
-            <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+            <div className="fade-in" style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Sentiment evolution</h3>
               {sentimentHistory.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={sentimentHistory}>
                     <defs>
                       <linearGradient id="sentimentGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={COLORS.gold} stopOpacity={0.3}/>
+                        <stop offset="5%" stopColor={COLORS.gold} stopOpacity={0.4}/>
                         <stop offset="95%" stopColor={COLORS.gold} stopOpacity={0}/>
                       </linearGradient>
                     </defs>
@@ -520,9 +618,8 @@ export default function AthleteDetail() {
               )}
             </div>
 
-            {/* Radar Chart - IMPROVED with thicker lines and better distinction */}
             {radarData.length > 0 && (
-              <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+              <div className="fade-in" style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
                 <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Reputation snapshot</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <RadarChart data={radarData}>
@@ -538,18 +635,18 @@ export default function AthleteDetail() {
             )}
           </div>
 
-          {/* Platform Performance + Aggregate Engagement */}
+          {/* Platform + Engagement */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', marginBottom: '2rem' }}>
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(201,169,97,0.1)' }}>
+            <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Platform performance</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
                   <div style={{ fontWeight: 600 }}>Twitter · @{dashboard.twitter_handle?.replace('@', '') || '—'}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{formatFollowers(dashboard.twitter_followers)} followers · {dashboard.avg_tweet_engagement ?? 0} avg engagement</div>
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{formatFollowers(dashboard.twitter_followers)} followers</div>
                 </div>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
                   <div style={{ fontWeight: 600 }}>Instagram · @{pd.instagram_handle || '—'}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{formatFollowers(dashboard.instagram_followers)} followers · {pd.avg_instagram_engagement ?? 0} avg engagement</div>
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{formatFollowers(dashboard.instagram_followers)} followers</div>
                 </div>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
                   <div style={{ fontWeight: 600 }}>News</div>
@@ -558,23 +655,20 @@ export default function AthleteDetail() {
               </div>
             </div>
 
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(201,169,97,0.1)' }}>
+            <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Aggregate engagement</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Twitter avg engagement rate</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Twitter engagement</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{(dashboard.avg_engagement_rate_twitter ?? agg.avg_engagement_rate_twitter_pct) != null ? `${(dashboard.avg_engagement_rate_twitter ?? agg.avg_engagement_rate_twitter_pct)}%` : '—'}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>Avg likes: {dashboard.avg_likes_twitter ?? agg.avg_likes_per_post_twitter ?? '—'}</div>
                 </div>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Instagram avg engagement rate</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Instagram engagement</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{(dashboard.avg_engagement_rate_instagram ?? agg.avg_engagement_rate_instagram_pct) != null ? `${(dashboard.avg_engagement_rate_instagram ?? agg.avg_engagement_rate_instagram_pct)}%` : '—'}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>Avg likes: {dashboard.avg_likes_instagram ?? agg.avg_likes_per_post_instagram ?? '—'}</div>
                 </div>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Combined visibility</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total visibility</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{dashboard.total_mentions ?? 0}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>Total mentions</div>
                 </div>
               </div>
             </div>
@@ -582,7 +676,7 @@ export default function AthleteDetail() {
 
           {/* Timeline */}
           {(dashboard.timeline_events?.length > 0) && (
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(201,169,97,0.1)' }}>
+            <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Timeline</h3>
               {dashboard.timeline_events.slice(0, 10).map((ev, i) => (
                 <div key={i} style={{ padding: '0.75rem 0', borderBottom: i < 9 ? `1px solid ${COLORS.border}` : 'none' }}>
@@ -596,30 +690,36 @@ export default function AthleteDetail() {
         </>
       )}
 
-      {/* TEMPORAL TAB */}
+      {/* TEMPORAL TAB - 7-DAY AVERAGE AS HERO */}
       {activeTab === 'temporal' && (
         <>
-          <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', overflowX: 'auto', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+          <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', overflowX: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
             <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: `2px solid ${COLORS.gold}60` }}>
-                  <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: COLORS.gold, fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: COLORS.gold, fontWeight: 700, textTransform: 'uppercase' }}>Today's score<br/><span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 400 }}>(24hr snapshot)</span></th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: COLORS.gold, fontWeight: 700, textTransform: 'uppercase' }}>7-day average</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>1 week ago</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>1 month ago</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Monthly trend</th>
+                <tr style={{ borderBottom: `3px solid ${COLORS.gold}` }}>
+                  <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
+                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Today's score<br/><span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 400 }}>(24hr snapshot)</span></th>
+                  {/* 7-DAY AVERAGE AS HERO */}
+                  <th style={{ textAlign: 'right', padding: '1.5rem', fontSize: '1rem', color: COLORS.gold, fontWeight: 900, textTransform: 'uppercase', background: `${COLORS.gold}15`, borderLeft: `3px solid ${COLORS.gold}`, borderRight: `3px solid ${COLORS.gold}` }}>
+                    7-DAY AVERAGE<br/><span style={{ fontSize: '0.7rem', fontWeight: 600 }}>(smoothed trend)</span>
+                  </th>
+                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 week ago</th>
+                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 month ago</th>
+                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Monthly trend</th>
                 </tr>
               </thead>
               <tbody>
                 {scoreEvolution.map((row) => (
                   <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
                     <td style={{ padding: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>{row.metric}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}>{row.current}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', color: COLORS.gold, fontWeight: 700, fontSize: '1.1rem' }}>{row.rolling7d}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.95rem' }}>{row.day7}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.95rem' }}>{row.day30}</td>
+                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 600, fontSize: '1rem', color: '#cbd5e1' }}>{row.current}</td>
+                    {/* HERO 7-DAY AVERAGE */}
+                    <td style={{ padding: '1.5rem', textAlign: 'right', color: COLORS.gold, fontWeight: 900, fontSize: '1.5rem', background: `${COLORS.gold}10`, borderLeft: `3px solid ${COLORS.gold}40`, borderRight: `3px solid ${COLORS.gold}40`, textShadow: `0 0 10px ${COLORS.gold}30` }}>
+                      {row.rolling7d}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day7}</td>
+                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day30}</td>
                     <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '0.95rem' }}>
                       <span style={{ color: row.trend === 'up' ? COLORS.success : row.trend === 'down' ? COLORS.danger : COLORS.neutral }}>
                         {row.trend === 'up' ? '↗ ' : row.trend === 'down' ? '↘ ' : '→ '}
@@ -637,8 +737,8 @@ export default function AthleteDetail() {
 
       {/* ALERTS TAB */}
       {activeTab === 'alerts' && (
-        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', padding: '1.5rem', background: `${alertConfig.color}15`, border: `2px solid ${alertConfig.color}40`, borderRadius: 8 }}>
+        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
+          <div className={alertLevel === 'critical' ? 'critical-glow' : ''} style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', padding: '1.5rem', background: `${alertConfig.color}15`, border: `2px solid ${alertConfig.color}40`, borderRadius: 8 }}>
             <AlertIcon size={32} color={alertConfig.color} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.1rem', color: alertConfig.color, letterSpacing: '0.5px' }}>THREAT LEVEL: {alertConfig.label}</div>
@@ -664,7 +764,7 @@ export default function AthleteDetail() {
             </div>
           ))}
           <h3 style={{ margin: '2rem 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Alert threshold configuration</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.9rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
               <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Sentiment</div>
               <div style={{ color: COLORS.danger, marginBottom: '0.25rem' }}>Critical &lt;50</div>
@@ -681,15 +781,13 @@ export default function AthleteDetail() {
         </div>
       )}
 
-      {/* INTELLIGENCE TAB - NO BULLETS, REGULAR PARAGRAPHS */}
+      {/* INTELLIGENCE TAB */}
       {activeTab === 'intelligence' && (
         <>
-          {/* Strategic Intelligence Section */}
           {pd.strategic_intelligence && (
-            <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2.5rem', marginBottom: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+            <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2.5rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
               <h3 style={{ margin: '0 0 2rem', color: COLORS.gold, fontSize: '1.5rem', fontWeight: 800 }}>Strategic Intelligence</h3>
               
-              {/* Strategic Overview */}
               {pd.strategic_intelligence.strategic_overview && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.border}20`, borderRadius: 8, borderLeft: `4px solid ${COLORS.gold}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -702,7 +800,6 @@ export default function AthleteDetail() {
                 </div>
               )}
 
-              {/* Key Risks - NO BULLETS */}
               {pd.strategic_intelligence.key_risks?.length > 0 && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.danger}10`, border: `2px solid ${COLORS.danger}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.danger}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -717,7 +814,6 @@ export default function AthleteDetail() {
                 </div>
               )}
 
-              {/* Immediate Recommendations - NO BULLETS */}
               {pd.strategic_intelligence.immediate_recommendations?.length > 0 && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.success}10`, border: `2px solid ${COLORS.success}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.success}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -732,7 +828,6 @@ export default function AthleteDetail() {
                 </div>
               )}
 
-              {/* Watch-Outs - NO BULLETS */}
               {pd.strategic_intelligence.watch_outs?.length > 0 && (
                 <div style={{ padding: '1.5rem', background: `${COLORS.warning}10`, border: `2px solid ${COLORS.warning}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.warning}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -749,43 +844,19 @@ export default function AthleteDetail() {
             </div>
           )}
 
-          {/* Perception Summary */}
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(201,169,97,0.1)' }}>
+          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Overall perception summary</h3>
             <p style={{ lineHeight: 1.7, color: '#e2e8f0', fontSize: '0.95rem' }}>
-              {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}). Twitter and Instagram follower counts and news mentions feed into these scores. Click each score card in the Overview tab for detailed breakdowns.`}
+              {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}). Twitter and Instagram follower counts and news mentions feed into these scores.`}
             </p>
-            <h4 style={{ margin: '1.5rem 0 1rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold }}>Key metrics</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              {pd.twitter_pct_positive != null && (
-                <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{pd.twitter_pct_positive}%</div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Positive sentiment Twitter/X</div>
-                </div>
-              )}
-              {pd.instagram_pct_positive != null && (
-                <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{pd.instagram_pct_positive}%</div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Positive sentiment Instagram</div>
-                </div>
-              )}
-              <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{formatFollowers(dashboard.twitter_followers)}</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Twitter followers</div>
-              </div>
-              <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{formatFollowers(dashboard.instagram_followers)}</div>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Instagram followers</div>
-              </div>
-            </div>
           </div>
         </>
       )}
 
-      {/* Recent content grid */}
+      {/* Recent content */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
         {dashboard.recent_tweets?.length > 0 && (
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(201,169,97,0.1)' }}>
+          <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent tweets</h3>
             {dashboard.recent_tweets.slice(0, 5).map((t) => (
               <div key={t.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
@@ -796,19 +867,19 @@ export default function AthleteDetail() {
           </div>
         )}
         {(dashboard.recent_instagram_posts?.length > 0 || pd.recent_instagram_posts?.length > 0) && (
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(201,169,97,0.1)' }}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent Instagram posts</h3>
+          <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent Instagram</h3>
             <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>@{pd.instagram_handle || '—'}</div>
             {(dashboard.recent_instagram_posts || pd.recent_instagram_posts || []).slice(0, 5).map((p, i) => (
               <div key={p.id || i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
                 <div style={{ fontSize: '0.75rem', color: '#64748b' }}>♥ {p.likes ?? 0} · 💬 {p.comments ?? 0}</div>
-                <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(p.caption || 'Instagram post').substring(0, 120)}{(p.caption && p.caption.length > 120) ? '…' : ''}</div>
+                <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(p.caption || 'Instagram post').substring(0, 120)}…</div>
               </div>
             ))}
           </div>
         )}
         {dashboard.recent_news?.length > 0 && (
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(201,169,97,0.1)' }}>
+          <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent news</h3>
             {dashboard.recent_news.slice(0, 5).map((a, i) => (
               <div key={i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
@@ -820,7 +891,7 @@ export default function AthleteDetail() {
         )}
       </div>
 
-      {/* AUTO-HIDING DISCLAIMER FOOTER with toggle */}
+      {/* AUTO-HIDING DISCLAIMER */}
       {disclaimerVisible && (
         <div style={{ 
           position: 'fixed', 
@@ -860,7 +931,6 @@ export default function AthleteDetail() {
         </div>
       )}
 
-      {/* Show disclaimer button when hidden */}
       {!disclaimerVisible && (
         <button
           onClick={() => setDisclaimerVisible(true)}
