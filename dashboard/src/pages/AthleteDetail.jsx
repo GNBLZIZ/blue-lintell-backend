@@ -239,9 +239,33 @@ export default function AthleteDetail() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem', position: 'relative' }}>
+      {/* Subtle branding watermark */}
+      <div style={{
+        position: 'fixed',
+        bottom: '2rem',
+        right: '2rem',
+        fontSize: '0.65rem',
+        color: COLORS.gold + '40',
+        fontWeight: 600,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        opacity: 0.6,
+        pointerEvents: 'none',
+        zIndex: 1
+      }}>
+        Blue & Lintell Intelligence
+      </div>
+      
       {/* Header */}
-      <div style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', border: `1px solid ${COLORS.gold}40` }}>
+      <div style={{ 
+        background: COLORS.navy, 
+        borderRadius: 12, 
+        padding: '2rem', 
+        marginBottom: '2rem', 
+        border: `1px solid ${COLORS.gold}60`,
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(201, 169, 97, 0.2)'
+      }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <button className="btn secondary" style={{ marginRight: '0.5rem' }} onClick={() => navigate('/')}>← Back</button>
@@ -307,7 +331,7 @@ export default function AthleteDetail() {
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             {scores.map((s) => {
               const details = pd[s.label];
               const isExpanded = expandedScore === s.label;
@@ -331,15 +355,29 @@ export default function AthleteDetail() {
                   onClick={() => setExpandedScore(isExpanded ? null : s.label)}
                   style={{
                     background: COLORS.cardBg,
-                    border: `1px solid ${isDanger ? COLORS.danger + '40' : COLORS.border}`,
+                    border: `1px solid ${isDanger ? COLORS.danger + '60' : COLORS.gold + '30'}`,
                     borderRadius: 12,
-                    padding: '1.25rem',
+                    padding: '2.5rem 2rem',
                     cursor: 'pointer',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.3s',
+                    boxShadow: `0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(201, 169, 97, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)`,
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = `0 12px 32px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(201, 169, 97, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08)`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = `0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(201, 169, 97, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)`;
                   }}
                 >
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase' }}>{s.label}</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 700 }}>{s.value ?? '—'}</div>
+                  {/* Gold accent bar at top */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: `linear-gradient(90deg, ${COLORS.gold} 0%, ${COLORS.gold}80 100%)` }}></div>
+                  
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+                  <div style={{ fontSize: '3.5rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{s.value ?? '—'}</div>
                   
                   {/* Change indicator */}
                   {s.changeFromYesterday !== null && (
@@ -375,9 +413,15 @@ export default function AthleteDetail() {
             })}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', color: COLORS.gold }}>Sentiment evolution</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
+            <div style={{ 
+              background: COLORS.cardBg, 
+              border: `1px solid ${COLORS.border}`, 
+              borderRadius: 12, 
+              padding: '2rem',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', color: COLORS.gold, fontWeight: 700 }}>Sentiment evolution</h3>
               {sentimentHistory.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={sentimentHistory}>
@@ -392,8 +436,14 @@ export default function AthleteDetail() {
                 <p style={{ color: '#64748b' }}>No history yet. Run Refresh to record snapshots.</p>
               )}
             </div>
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', color: COLORS.gold }}>Platform performance</h3>
+            <div style={{ 
+              background: COLORS.cardBg, 
+              border: `1px solid ${COLORS.border}`, 
+              borderRadius: 12, 
+              padding: '2rem',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', color: COLORS.gold, fontWeight: 700 }}>Platform performance</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ padding: '0.75rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
                   <div style={{ fontWeight: 600 }}>Twitter · @{dashboard.twitter_handle?.replace('@', '') || '—'}</div>
@@ -412,8 +462,15 @@ export default function AthleteDetail() {
           </div>
 
           {/* Aggregate engagement metrics */}
-          <div style={{ marginTop: '1.5rem', background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-            <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Aggregate engagement</h3>
+          <div style={{ 
+            marginTop: '2rem', 
+            background: COLORS.cardBg, 
+            border: `1px solid ${COLORS.border}`, 
+            borderRadius: 12, 
+            padding: '2rem',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 1.5rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700 }}>Aggregate engagement</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Twitter avg engagement rate</div>
@@ -434,8 +491,15 @@ export default function AthleteDetail() {
           </div>
 
           {(dashboard.timeline_events?.length > 0) && (
-            <div style={{ marginTop: '1.5rem', background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Timeline</h3>
+            <div style={{ 
+              marginTop: '2rem', 
+              background: COLORS.cardBg, 
+              border: `1px solid ${COLORS.border}`, 
+              borderRadius: 12, 
+              padding: '2rem',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 1.5rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700 }}>Timeline</h3>
               {dashboard.timeline_events.slice(0, 10).map((ev, i) => (
                 <div key={i} style={{ padding: '0.5rem 0', borderBottom: i < 9 ? `1px solid ${COLORS.border}` : 'none' }}>
                   <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ev.date} · {ev.platforms}</div>
@@ -451,8 +515,16 @@ export default function AthleteDetail() {
       {/* TEMPORAL TAB */}
       {activeTab === 'temporal' && (
         <>
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', overflowX: 'auto' }}>
-            <h3 style={{ margin: '0 0 0.5rem', color: COLORS.gold }}>Reputation scores over time</h3>
+          <div style={{ 
+            background: COLORS.cardBg, 
+            border: `1px solid ${COLORS.border}`, 
+            borderRadius: 12, 
+            padding: '2rem', 
+            marginBottom: '2rem', 
+            overflowX: 'auto',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 0.75rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700 }}>Reputation scores over time</h3>
             <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1.5rem', lineHeight: 1.5 }}>
               <strong style={{ color: COLORS.gold }}>7-Day Average</strong> shows the smoothed trend (focus here). Latest Refresh may fluctuate daily based on recent data collection.
             </p>
@@ -534,8 +606,14 @@ export default function AthleteDetail() {
             </table>
           </div>
           {radarData.length > 0 && (
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Reputation profile comparison</h3>
+            <div style={{ 
+              background: COLORS.cardBg, 
+              border: `1px solid ${COLORS.border}`, 
+              borderRadius: 12, 
+              padding: '2rem',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700 }}>Reputation profile comparison</h3>
               <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1rem' }}>Comparing latest scores (solid gold) against 7-day rolling average (dashed orange) and 1 month ago (dashed grey)</p>
               <ResponsiveContainer width="100%" height={350}>
                 <RadarChart data={radarData}>
@@ -555,7 +633,13 @@ export default function AthleteDetail() {
 
       {/* ALERTS TAB */}
       {activeTab === 'alerts' && (
-        <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
+        <div style={{ 
+          background: COLORS.cardBg, 
+          border: `1px solid ${COLORS.border}`, 
+          borderRadius: 12, 
+          padding: '2rem',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', background: `${alertConfig.color}15`, border: `1px solid ${alertConfig.color}40`, borderRadius: 8 }}>
             <AlertIcon size={28} color={alertConfig.color} />
             <div>
@@ -604,14 +688,21 @@ export default function AthleteDetail() {
         <>
           {/* Strategic Intelligence Section */}
           {pd.strategic_intelligence && (
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: '0 0 1rem', color: COLORS.gold, fontSize: '1.25rem' }}>Strategic Intelligence</h3>
+            <div style={{ 
+              background: COLORS.cardBg, 
+              border: `1px solid ${COLORS.gold}40`, 
+              borderRadius: 12, 
+              padding: '2rem', 
+              marginBottom: '2rem',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(201, 169, 97, 0.15)'
+            }}>
+              <h3 style={{ margin: '0 0 1.5rem', color: COLORS.gold, fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Strategic Intelligence</h3>
               
               {/* Strategic Overview */}
               {pd.strategic_intelligence.strategic_overview && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Strategic Overview</h4>
-                  <p style={{ lineHeight: 1.7, color: '#cbd5e1', margin: 0 }}>
+                  <h4 style={{ margin: '0 0 0.75rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Strategic Overview</h4>
+                  <p style={{ lineHeight: 1.7, color: '#cbd5e1', margin: 0, fontSize: '0.95rem' }}>
                     {pd.strategic_intelligence.strategic_overview}
                   </p>
                 </div>
@@ -620,7 +711,7 @@ export default function AthleteDetail() {
               {/* Key Risks */}
               {pd.strategic_intelligence.key_risks?.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Key Risks</h4>
+                  <h4 style={{ margin: '0 0 0.75rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Key Risks</h4>
                   <div style={{ background: `${COLORS.danger}10`, border: `1px solid ${COLORS.danger}40`, borderRadius: 8, padding: '1rem' }}>
                     {pd.strategic_intelligence.key_risks.map((risk, i) => (
                       <div key={i} style={{ color: '#fca5a5', marginBottom: i < pd.strategic_intelligence.key_risks.length - 1 ? '0.5rem' : 0, lineHeight: 1.6 }}>
@@ -634,7 +725,7 @@ export default function AthleteDetail() {
               {/* Immediate Recommendations */}
               {pd.strategic_intelligence.immediate_recommendations?.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Immediate Recommendations</h4>
+                  <h4 style={{ margin: '0 0 0.75rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Immediate Recommendations</h4>
                   <div style={{ background: `${COLORS.success}10`, border: `1px solid ${COLORS.success}40`, borderRadius: 8, padding: '1rem' }}>
                     {pd.strategic_intelligence.immediate_recommendations.map((rec, i) => (
                       <div key={i} style={{ color: '#86efac', marginBottom: i < pd.strategic_intelligence.immediate_recommendations.length - 1 ? '0.5rem' : 0, lineHeight: 1.6 }}>
@@ -648,7 +739,7 @@ export default function AthleteDetail() {
               {/* Watch-Outs */}
               {pd.strategic_intelligence.watch_outs?.length > 0 && (
                 <div>
-                  <h4 style={{ margin: '0 0 0.75rem', color: '#e2e8f0', fontSize: '1rem', fontWeight: 600 }}>Watch-Outs</h4>
+                  <h4 style={{ margin: '0 0 0.75rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Watch-Outs</h4>
                   <div style={{ background: `${COLORS.warning}10`, border: `1px solid ${COLORS.warning}40`, borderRadius: 8, padding: '1rem' }}>
                     {pd.strategic_intelligence.watch_outs.map((watch, i) => (
                       <div key={i} style={{ color: '#fcd34d', marginBottom: i < pd.strategic_intelligence.watch_outs.length - 1 ? '0.5rem' : 0, lineHeight: 1.6 }}>
@@ -662,8 +753,14 @@ export default function AthleteDetail() {
           )}
 
           {/* Existing Intelligence Summary */}
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.5rem' }}>
-            <h3 style={{ margin: '0 0 1rem', color: COLORS.gold }}>Overall perception summary</h3>
+          <div style={{ 
+            background: COLORS.cardBg, 
+            border: `1px solid ${COLORS.border}`, 
+            borderRadius: 12, 
+            padding: '2rem',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(201, 169, 97, 0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 1.5rem', color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700 }}>Overall perception summary</h3>
             <p style={{ lineHeight: 1.7, color: '#e2e8f0' }}>
               {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}). Twitter and Instagram follower counts and news mentions feed into these scores. Click each score card in the Overview tab for detailed breakdowns.`}
             </p>
