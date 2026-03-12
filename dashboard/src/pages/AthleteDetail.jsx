@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend
 } from 'recharts';
-import { AlertTriangle, TrendingUp, TrendingDown, Shield, ChevronRight, Radio, Target, AlertCircle, CheckCircle, Eye } from 'lucide-react';
+import { AlertTriangle, TrendingUp, TrendingDown, Shield, ChevronRight, Radio, Target, AlertCircle, CheckCircle, Eye, X } from 'lucide-react';
 import { api } from '../api';
 
 const COLORS = {
@@ -19,11 +19,11 @@ const COLORS = {
 };
 
 const SCORE_KEYS = [
-  'Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance'
+  'Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance', 'Influence'
 ];
 const SCORE_FIELDS = [
   'sentiment_score', 'credibility_score', 'likeability_score', 'leadership_score',
-  'authenticity_score', 'controversy_score', 'relevance_score'
+  'authenticity_score', 'controversy_score', 'relevance_score', 'influence_score'
 ];
 
 export default function AthleteDetail() {
@@ -38,6 +38,7 @@ export default function AthleteDetail() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [expandedScore, setExpandedScore] = useState(null);
+  const [disclaimerVisible, setDisclaimerVisible] = useState(true);
 
   const loadDashboard = () => {
     setError(null);
@@ -76,6 +77,14 @@ export default function AthleteDetail() {
     loadHistory();
   }, [athleteId, historyDays]);
 
+  // Auto-hide disclaimer after 8 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDisclaimerVisible(false);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleRefresh = () => {
     if (!dashboard) return;
     setRefreshing(true);
@@ -113,10 +122,40 @@ export default function AthleteDetail() {
   const pd = dashboard.perception_details || {};
   const agg = pd.engagement_aggregates || {};
   
+  // Calculate Influence score
+  const calculateInfluence = () => {
+    const twitterFollowers = dashboard.twitter_followers || 0;
+    const instagramFollowers = dashboard.instagram_followers || 0;
+    const totalFollowers = twitterFollowers + instagramFollowers;
+    
+    // Base score from follower count (normalize to 0-100)
+    let baseScore = Math.min(100, Math.sqrt(totalFollowers / 10000) * 50);
+    
+    // Engagement multiplier (0.5 to 1.5)
+    const twitterEngagement = dashboard.avg_engagement_rate_twitter || 0;
+    const instagramEngagement = dashboard.avg_engagement_rate_instagram || 0;
+    const avgEngagement = (twitterEngagement + instagramEngagement) / 2;
+    const engagementMultiplier = 0.5 + (avgEngagement / 10);
+    
+    // News coverage bonus (up to +20 points)
+    const newsBonus = Math.min(20, (dashboard.news_articles_count || 0) * 2);
+    
+    // Final calculation
+    let influence = (baseScore * engagementMultiplier) + newsBonus;
+    influence = Math.min(100, Math.max(0, Math.round(influence)));
+    
+    return influence;
+  };
+
   // Build scores array with rolling average integration
   const scores = SCORE_KEYS.map((label, i) => {
     const field = SCORE_FIELDS[i];
-    const currentValue = dashboard[field] ?? '—';
+    let currentValue = dashboard[field] ?? '—';
+    
+    // Special handling for Influence (calculated field)
+    if (field === 'influence_score') {
+      currentValue = calculateInfluence();
+    }
     
     let rollingAvg = currentValue;
     let changeFromYesterday = null;
@@ -155,14 +194,18 @@ export default function AthleteDetail() {
   };
 
   const snap7 = getSnapshotForDaysAgo(7);
-  const snap14 = getSnapshotForDaysAgo(14);
   const snap30 = getSnapshotForDaysAgo(30);
 
   const scoreEvolution = SCORE_KEYS.map((metric, i) => {
     const field = SCORE_FIELDS[i];
-    const current = dashboard[field] ?? 0;
+    let current = dashboard[field] ?? 0;
+    
+    // Special handling for Influence
+    if (field === 'influence_score') {
+      current = calculateInfluence();
+    }
+    
     const day7 = snap7?.[field] ?? current;
-    const day14 = snap14?.[field] ?? current;
     const day30 = snap30?.[field] ?? current;
     
     let rolling7d = current;
@@ -248,16 +291,16 @@ export default function AthleteDetail() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem', paddingBottom: '4rem' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem', paddingBottom: disclaimerVisible ? '5rem' : '2rem' }}>
       {/* Header */}
-      <div style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', border: `1px solid ${COLORS.gold}40`, boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+      <div style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <button className="btn secondary" style={{ marginRight: '0.5rem' }} onClick={() => navigate('/')}>← Back</button>
             <h1 style={{ display: 'inline-block', margin: 0, fontSize: '1.75rem', fontWeight: 700 }}>
               {dashboard.athlete_name?.toUpperCase() || 'Athlete'}
             </h1>
-            <span style={{ marginLeft: '0.5rem', background: `${alertConfig.color}20`, border: `1px solid ${alertConfig.color}`, color: alertConfig.color, padding: '4px 10px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700 }}>
+            <span style={{ marginLeft: '0.5rem', background: `${alertConfig.color}20`, border: `2px solid ${alertConfig.color}`, color: alertConfig.color, padding: '4px 10px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700 }}>
               {alertConfig.label}
             </span>
             <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#94a3b8' }}>
@@ -273,7 +316,7 @@ export default function AthleteDetail() {
             <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               Last updated: {dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}
               {rollingData?.period_start && rollingData?.period_end && (
-                <span style={{ marginLeft: '1rem' }}>
+                <span style={{ marginLeft: '1rem', color: COLORS.gold }}>
                   7-day rolling average ({new Date(rollingData.period_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(rollingData.period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})
                 </span>
               )}
@@ -284,14 +327,14 @@ export default function AthleteDetail() {
               </p>
             )}
           </div>
-          <button className="btn" onClick={handleRefresh} disabled={refreshing}>
+          <button className="btn" onClick={handleRefresh} disabled={refreshing} style={{ background: COLORS.gold, color: COLORS.navy, fontWeight: 700 }}>
             {refreshing ? 'Refreshing…' : 'Refresh data'}
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: `1px solid ${COLORS.border}` }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: `2px solid ${COLORS.border}` }}>
         {['overview', 'temporal', 'alerts', 'intelligence'].map((tab) => (
           <button
             key={tab}
@@ -299,13 +342,14 @@ export default function AthleteDetail() {
             style={{
               background: activeTab === tab ? COLORS.cardBg : 'transparent',
               border: 'none',
-              borderBottom: activeTab === tab ? `2px solid ${COLORS.gold}` : '2px solid transparent',
+              borderBottom: activeTab === tab ? `3px solid ${COLORS.gold}` : '3px solid transparent',
               color: activeTab === tab ? COLORS.gold : '#94a3b8',
               padding: '0.75rem 1.25rem',
               fontSize: '0.875rem',
-              fontWeight: 600,
+              fontWeight: 700,
               textTransform: 'uppercase',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              letterSpacing: '0.5px'
             }}
           >
             {tab}
@@ -316,7 +360,7 @@ export default function AthleteDetail() {
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
         <>
-          {/* FIXED LAYOUT SCORE CARDS - 4 top, 3 bottom on desktop */}
+          {/* FIXED LAYOUT SCORE CARDS - 4 + 4 for perfect balance */}
           <style>{`
             .score-grid {
               display: grid;
@@ -328,15 +372,6 @@ export default function AthleteDetail() {
             @media (min-width: 1024px) {
               .score-grid {
                 grid-template-columns: repeat(4, 1fr);
-              }
-              .score-card:nth-child(5) {
-                grid-column: 2;
-              }
-              .score-card:nth-child(6) {
-                grid-column: 3;
-              }
-              .score-card:nth-child(7) {
-                grid-column: 4;
               }
             }
             
@@ -370,6 +405,16 @@ export default function AthleteDetail() {
                 }
               }
               
+              // Determine border color - use gold for high performers
+              let borderColor = COLORS.border;
+              if (s.label === 'Controversy') {
+                if (s.value < 20) borderColor = COLORS.success;
+                else if (s.value > 30) borderColor = COLORS.danger;
+              } else {
+                if (s.value >= 80) borderColor = COLORS.gold;
+                else if (s.value < 60) borderColor = COLORS.danger + '60';
+              }
+              
               return (
                 <div
                   key={s.label}
@@ -377,7 +422,7 @@ export default function AthleteDetail() {
                   onClick={() => setExpandedScore(isExpanded ? null : s.label)}
                   style={{
                     background: COLORS.cardBg,
-                    border: `1px solid ${isDanger ? COLORS.danger + '40' : COLORS.border}`,
+                    border: `2px solid ${borderColor}`,
                     borderRadius: 12,
                     padding: '2.5rem',
                     cursor: 'pointer',
@@ -396,21 +441,37 @@ export default function AthleteDetail() {
                 >
                   <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
                   
-                  {/* MASSIVE SCORE NUMBER */}
-                  <div style={{ fontSize: '3.5rem', fontWeight: 800, lineHeight: 1, marginBottom: '0.5rem' }}>{s.value ?? '—'}</div>
+                  {/* MASSIVE SCORE NUMBER with color coding */}
+                  <div style={{ 
+                    fontSize: '3.5rem', 
+                    fontWeight: 800, 
+                    lineHeight: 1, 
+                    marginBottom: '0.5rem',
+                    color: s.label === 'Controversy' 
+                      ? (s.value > 40 ? COLORS.danger : s.value > 30 ? COLORS.warning : COLORS.gold)
+                      : (s.value >= 80 ? COLORS.gold : s.value < 60 ? COLORS.danger : '#fff')
+                  }}>
+                    {s.value ?? '—'}
+                  </div>
                   
-                  {/* Change indicator */}
+                  {/* BIGGER Change indicator with more prominence */}
                   {s.changeFromYesterday !== null && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
-                      <span style={{ color: changeColor, fontSize: '1rem', fontWeight: 700 }}>
-                        {s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '●'} {s.changeFromYesterday > 0 ? '+' : ''}{s.changeFromYesterday}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.5rem', background: `${changeColor}15`, borderRadius: 6 }}>
+                      <span style={{ color: changeColor, fontSize: '1.2rem', fontWeight: 800 }}>
+                        {s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '●'}
+                      </span>
+                      <span style={{ color: changeColor, fontSize: '1.1rem', fontWeight: 700 }}>
+                        {s.changeFromYesterday > 0 ? '+' : ''}{s.changeFromYesterday}
+                      </span>
+                      <span style={{ color: changeColor, fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 600, marginLeft: '0.25rem' }}>
+                        vs yesterday
                       </span>
                     </div>
                   )}
                   
                   {/* 7-day average label */}
                   {rollingData && (
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>7-day average</div>
+                    <div style={{ fontSize: '0.75rem', color: COLORS.gold, marginBottom: '0.75rem', fontWeight: 600 }}>7-day rolling average</div>
                   )}
                   
                   {(details?.summary || isExpanded) && (
@@ -436,7 +497,7 @@ export default function AthleteDetail() {
           {/* CHARTS ROW - Sentiment + Radar */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
             {/* Sentiment Chart */}
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+            <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Sentiment evolution</h3>
               {sentimentHistory.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
@@ -448,8 +509,8 @@ export default function AthleteDetail() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
-                    <XAxis dataKey="date" stroke="#64748b" tickFormatter={(d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
-                    <YAxis stroke="#64748b" domain={[0, 100]} />
+                    <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: '0.8rem' }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+                    <YAxis stroke="#94a3b8" domain={[0, 100]} style={{ fontSize: '0.8rem' }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Area type="monotone" dataKey="sentiment" stroke={COLORS.gold} fill="url(#sentimentGradient)" strokeWidth={3} />
                   </AreaChart>
@@ -459,18 +520,18 @@ export default function AthleteDetail() {
               )}
             </div>
 
-            {/* Radar Chart - NOW IN OVERVIEW */}
+            {/* Radar Chart - IMPROVED with thicker lines and better distinction */}
             {radarData.length > 0 && (
-              <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+              <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
                 <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Reputation snapshot</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <RadarChart data={radarData}>
-                    <PolarGrid stroke={COLORS.border} />
-                    <PolarAngleAxis dataKey="metric" stroke="#94a3b8" style={{ fontSize: '0.75rem' }} />
-                    <PolarRadiusAxis stroke="#64748b" domain={[0, 100]} />
-                    <Radar name="Current" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.4} strokeWidth={3} />
-                    <Radar name="7-day avg" dataKey="rolling7d" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} strokeDasharray="5 5" strokeWidth={2} />
-                    <Legend wrapperStyle={{ fontSize: '0.85rem' }} />
+                    <PolarGrid stroke={COLORS.border} strokeWidth={1.5} />
+                    <PolarAngleAxis dataKey="metric" stroke="#cbd5e1" style={{ fontSize: '0.85rem', fontWeight: 600 }} />
+                    <PolarRadiusAxis stroke="#94a3b8" domain={[0, 100]} style={{ fontSize: '0.75rem' }} />
+                    <Radar name="Today's score" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.4} strokeWidth={4} />
+                    <Radar name="7-day average" dataKey="rolling7d" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.15} strokeDasharray="8 4" strokeWidth={3} />
+                    <Legend wrapperStyle={{ fontSize: '0.9rem', fontWeight: 600 }} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
@@ -538,14 +599,14 @@ export default function AthleteDetail() {
       {/* TEMPORAL TAB */}
       {activeTab === 'temporal' && (
         <>
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', overflowX: 'auto', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
-            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution</h3>
+          <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', overflowX: 'auto', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-                  <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Latest score</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>7-day average</th>
+                <tr style={{ borderBottom: `2px solid ${COLORS.gold}60` }}>
+                  <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: COLORS.gold, fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
+                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: COLORS.gold, fontWeight: 700, textTransform: 'uppercase' }}>Today's score<br/><span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 400 }}>(24hr snapshot)</span></th>
+                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: COLORS.gold, fontWeight: 700, textTransform: 'uppercase' }}>7-day average</th>
                   <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>1 week ago</th>
                   <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>1 month ago</th>
                   <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Monthly trend</th>
@@ -555,7 +616,7 @@ export default function AthleteDetail() {
                 {scoreEvolution.map((row) => (
                   <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
                     <td style={{ padding: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>{row.metric}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem' }}>{row.current}</td>
+                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', color: '#fff' }}>{row.current}</td>
                     <td style={{ padding: '1rem', textAlign: 'right', color: COLORS.gold, fontWeight: 700, fontSize: '1.1rem' }}>{row.rolling7d}</td>
                     <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.95rem' }}>{row.day7}</td>
                     <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.95rem' }}>{row.day30}</td>
@@ -576,7 +637,7 @@ export default function AthleteDetail() {
 
       {/* ALERTS TAB */}
       {activeTab === 'alerts' && (
-        <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', padding: '1.5rem', background: `${alertConfig.color}15`, border: `2px solid ${alertConfig.color}40`, borderRadius: 8 }}>
             <AlertIcon size={32} color={alertConfig.color} />
             <div>
@@ -620,15 +681,15 @@ export default function AthleteDetail() {
         </div>
       )}
 
-      {/* INTELLIGENCE TAB - RESTRUCTURED */}
+      {/* INTELLIGENCE TAB - NO BULLETS, REGULAR PARAGRAPHS */}
       {activeTab === 'intelligence' && (
         <>
-          {/* Strategic Intelligence Section - BULLETS & ICONS */}
+          {/* Strategic Intelligence Section */}
           {pd.strategic_intelligence && (
-            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2.5rem', marginBottom: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
+            <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2.5rem', marginBottom: '2rem', boxShadow: '0 6px 20px rgba(0,0,0,0.35), 0 2px 8px rgba(201,169,97,0.15)' }}>
               <h3 style={{ margin: '0 0 2rem', color: COLORS.gold, fontSize: '1.5rem', fontWeight: 800 }}>Strategic Intelligence</h3>
               
-              {/* Strategic Overview - with icon */}
+              {/* Strategic Overview */}
               {pd.strategic_intelligence.strategic_overview && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.border}20`, borderRadius: 8, borderLeft: `4px solid ${COLORS.gold}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -641,48 +702,48 @@ export default function AthleteDetail() {
                 </div>
               )}
 
-              {/* Key Risks - BULLETS with red */}
+              {/* Key Risks - NO BULLETS */}
               {pd.strategic_intelligence.key_risks?.length > 0 && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.danger}10`, border: `2px solid ${COLORS.danger}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.danger}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                     <AlertCircle size={24} color={COLORS.danger} />
                     <h4 style={{ margin: 0, color: COLORS.danger, fontSize: '1.1rem', fontWeight: 700 }}>Key Risks</h4>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#fca5a5', lineHeight: 1.8 }}>
+                  <div style={{ color: '#fca5a5', lineHeight: 1.8, fontSize: '0.95rem' }}>
                     {pd.strategic_intelligence.key_risks.map((risk, i) => (
-                      <li key={i} style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>{risk}</li>
+                      <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{risk}</p>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
-              {/* Immediate Recommendations - BULLETS with green */}
+              {/* Immediate Recommendations - NO BULLETS */}
               {pd.strategic_intelligence.immediate_recommendations?.length > 0 && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.success}10`, border: `2px solid ${COLORS.success}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.success}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                     <CheckCircle size={24} color={COLORS.success} />
                     <h4 style={{ margin: 0, color: COLORS.success, fontSize: '1.1rem', fontWeight: 700 }}>Immediate Recommendations</h4>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#86efac', lineHeight: 1.8 }}>
+                  <div style={{ color: '#86efac', lineHeight: 1.8, fontSize: '0.95rem' }}>
                     {pd.strategic_intelligence.immediate_recommendations.map((rec, i) => (
-                      <li key={i} style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>{rec}</li>
+                      <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{rec}</p>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
-              {/* Watch-Outs - BULLETS with amber */}
+              {/* Watch-Outs - NO BULLETS */}
               {pd.strategic_intelligence.watch_outs?.length > 0 && (
                 <div style={{ padding: '1.5rem', background: `${COLORS.warning}10`, border: `2px solid ${COLORS.warning}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.warning}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                     <Eye size={24} color={COLORS.warning} />
                     <h4 style={{ margin: 0, color: COLORS.warning, fontSize: '1.1rem', fontWeight: 700 }}>Watch-Outs</h4>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#fcd34d', lineHeight: 1.8 }}>
+                  <div style={{ color: '#fcd34d', lineHeight: 1.8, fontSize: '0.95rem' }}>
                     {pd.strategic_intelligence.watch_outs.map((watch, i) => (
-                      <li key={i} style={{ marginBottom: '0.75rem', fontSize: '0.95rem' }}>{watch}</li>
+                      <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{watch}</p>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
@@ -759,28 +820,72 @@ export default function AthleteDetail() {
         )}
       </div>
 
-      {/* DISCLAIMER FOOTER */}
-      <div style={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        background: 'rgba(26, 58, 92, 0.95)', 
-        backdropFilter: 'blur(10px)',
-        borderTop: `1px solid ${COLORS.gold}40`, 
-        padding: '1rem 2rem', 
-        fontSize: '0.75rem', 
-        color: '#94a3b8',
-        lineHeight: 1.5,
-        zIndex: 1000
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          <strong style={{ color: COLORS.gold }}>Legal Disclaimer:</strong> This dashboard presents data-driven intelligence based on publicly available information and automated analysis. Scores are indicative assessments and should not be considered definitive measures of reputation or character. Blue & Lintell Limited provides this information for strategic guidance purposes only and accepts no liability for decisions made based on this data. All data is subject to limitations in collection methods, API availability, and algorithmic interpretation. Users should conduct independent verification and exercise professional judgement when acting on insights provided.
+      {/* AUTO-HIDING DISCLAIMER FOOTER with toggle */}
+      {disclaimerVisible && (
+        <div style={{ 
+          position: 'fixed', 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          background: 'rgba(26, 58, 92, 0.98)', 
+          backdropFilter: 'blur(10px)',
+          borderTop: `2px solid ${COLORS.gold}`, 
+          padding: '1rem 2rem', 
+          fontSize: '0.75rem', 
+          color: '#94a3b8',
+          lineHeight: 1.5,
+          zIndex: 1000,
+          boxShadow: '0 -4px 12px rgba(0,0,0,0.3)'
+        }}>
+          <button
+            onClick={() => setDisclaimerVisible(false)}
+            style={{
+              position: 'absolute',
+              top: '0.5rem',
+              right: '1rem',
+              background: 'transparent',
+              border: 'none',
+              color: COLORS.gold,
+              cursor: 'pointer',
+              fontSize: '1.2rem',
+              padding: '0.25rem'
+            }}
+            title="Hide disclaimer"
+          >
+            <X size={20} />
+          </button>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', paddingRight: '3rem' }}>
+            <strong style={{ color: COLORS.gold }}>Legal Disclaimer:</strong> This dashboard presents data-driven intelligence based on publicly available information and automated analysis. Scores are indicative assessments and should not be considered definitive measures of reputation or character. Blue & Lintell Limited provides this information for strategic guidance purposes only and accepts no liability for decisions made based on this data. All data is subject to limitations in collection methods, API availability, and algorithmic interpretation. Users should conduct independent verification and exercise professional judgement when acting on insights provided.
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Show disclaimer button when hidden */}
+      {!disclaimerVisible && (
+        <button
+          onClick={() => setDisclaimerVisible(true)}
+          style={{
+            position: 'fixed',
+            bottom: '1rem',
+            right: '1.5rem',
+            background: COLORS.navy,
+            border: `2px solid ${COLORS.gold}`,
+            color: COLORS.gold,
+            padding: '0.5rem 1rem',
+            borderRadius: 8,
+            fontSize: '0.75rem',
+            cursor: 'pointer',
+            fontWeight: 600,
+            zIndex: 1000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+          }}
+        >
+          Show Legal Disclaimer
+        </button>
+      )}
 
       {/* Watermark */}
-      <div style={{ position: 'fixed', bottom: '4.5rem', right: '1.5rem', opacity: 0.4, fontSize: '0.7rem', color: COLORS.gold, fontWeight: 600, letterSpacing: '1px' }}>
+      <div style={{ position: 'fixed', bottom: disclaimerVisible ? '5rem' : '1rem', left: '1.5rem', opacity: 0.3, fontSize: '0.7rem', color: COLORS.gold, fontWeight: 600, letterSpacing: '1px' }}>
         Blue & Lintell Intelligence
       </div>
     </div>
