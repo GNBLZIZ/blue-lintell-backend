@@ -26,7 +26,6 @@ const SCORE_FIELDS = [
   'authenticity_score', 'controversy_score', 'relevance_score', 'influence_score'
 ];
 
-// INFLUENCE SCORE RATIONALE
 const INFLUENCE_RATIONALE = {
   summary: "Combined measure of reach and impact across all platforms. Reflects total audience size, engagement quality, and media amplification.",
   breakdown: [
@@ -35,6 +34,13 @@ const INFLUENCE_RATIONALE = {
     "News coverage and media mentions add authority and amplification",
     "Higher engagement with smaller audience can outperform large passive following"
   ]
+};
+
+// Sponsor Readiness badge config
+const SPONSOR_READINESS_CONFIG = {
+  GREEN:  { color: '#10b981', bg: '#10b98118', border: '#10b98140', label: 'SPONSOR READY',    icon: '●' },
+  AMBER:  { color: '#f59e0b', bg: '#f59e0b18', border: '#f59e0b40', label: 'REVIEW ADVISED',  icon: '●' },
+  RED:    { color: '#dc2626', bg: '#dc262618', border: '#dc262640', label: 'SPONSOR RISK',     icon: '●' },
 };
 
 export default function AthleteDetail() {
@@ -89,19 +95,13 @@ export default function AthleteDetail() {
     loadHistory();
   }, [athleteId, historyDays]);
 
-  // Auto-hide disclaimer after 8 seconds
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDisclaimerVisible(false);
-    }, 8000);
+    const timer = setTimeout(() => setDisclaimerVisible(false), 8000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Staggered card entrance animation
   useEffect(() => {
-    if (dashboard) {
-      setTimeout(() => setCardsVisible(true), 100);
-    }
+    if (dashboard) setTimeout(() => setCardsVisible(true), 100);
   }, [dashboard]);
 
   const handleRefresh = () => {
@@ -140,60 +140,69 @@ export default function AthleteDetail() {
   const alertLevel = dashboard.overall_alert_level || 'nominal';
   const pd = dashboard.perception_details || {};
   const agg = pd.engagement_aggregates || {};
-  
-  // Calculate Influence score
+
+  // ── FIX 6: safe follower formatting — returns null if no data ──
+  const formatFollowers = (n) => {
+    if (n == null || n === 0) return null;
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+    return String(n);
+  };
+
   const calculateInfluence = () => {
     const twitterFollowers = dashboard.twitter_followers || 0;
     const instagramFollowers = dashboard.instagram_followers || 0;
     const totalFollowers = twitterFollowers + instagramFollowers;
-    
     let baseScore = Math.min(100, Math.sqrt(totalFollowers / 10000) * 50);
-    
     const twitterEngagement = dashboard.avg_engagement_rate_twitter || 0;
     const instagramEngagement = dashboard.avg_engagement_rate_instagram || 0;
     const avgEngagement = (twitterEngagement + instagramEngagement) / 2;
     const engagementMultiplier = 0.5 + (avgEngagement / 10);
-    
     const newsBonus = Math.min(20, (dashboard.news_articles_count || 0) * 2);
-    
-    let influence = (baseScore * engagementMultiplier) + newsBonus;
-    influence = Math.min(100, Math.max(0, Math.round(influence)));
-    
-    return influence;
+    return Math.min(100, Math.max(0, Math.round((baseScore * engagementMultiplier) + newsBonus)));
   };
 
-  // Build scores array with rolling average integration
+  // ── FIX 5: Composite score & Sponsor Readiness ──
+  // Pull from backend if available, otherwise derive
+  const compositeScore = dashboard.composite_score ?? (() => {
+    const fields = ['sentiment_score','credibility_score','likeability_score','leadership_score','authenticity_score','relevance_score'];
+    const vals = fields.map(f => dashboard[f]).filter(v => v != null);
+    if (!vals.length) return null;
+    const avg = Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+    // Penalise for controversy
+    const controversy = dashboard.controversy_score ?? 0;
+    return Math.max(0, Math.min(100, avg - Math.round(controversy * 0.3)));
+  })();
+
+  const sponsorReadiness = (() => {
+    // If backend returns it as object with .status
+    if (dashboard.sponsor_readiness?.status) return dashboard.sponsor_readiness.status;
+    // If backend returns it as string directly
+    if (typeof dashboard.sponsor_readiness === 'string') return dashboard.sponsor_readiness;
+    // Derive from scores
+    const controversy = dashboard.controversy_score ?? 0;
+    const sentiment = dashboard.sentiment_score ?? 70;
+    if (controversy > 40 || sentiment < 50) return 'RED';
+    if (controversy > 25 || sentiment < 60) return 'AMBER';
+    return 'GREEN';
+  })();
+
+  const srConfig = SPONSOR_READINESS_CONFIG[sponsorReadiness] || SPONSOR_READINESS_CONFIG.GREEN;
+
   const scores = SCORE_KEYS.map((label, i) => {
     const field = SCORE_FIELDS[i];
     let currentValue = dashboard[field] ?? '—';
-    
-    // Special handling for Influence
-    if (field === 'influence_score') {
-      currentValue = calculateInfluence();
-    }
-    
+    if (field === 'influence_score') currentValue = calculateInfluence();
     let rollingAvg = currentValue;
     let changeFromYesterday = null;
     let trend = 'stable';
-    
     if (rollingData?.scores?.[field]) {
       rollingAvg = rollingData.scores[field].rolling_avg ?? currentValue;
       changeFromYesterday = rollingData.scores[field].change_from_yesterday ?? null;
       trend = rollingData.scores[field].trend ?? 'stable';
     }
-    
-    // Add Influence rationale
     const details = label === 'Influence' ? INFLUENCE_RATIONALE : pd[label];
-    
-    return {
-      label,
-      value: rollingAvg,
-      currentValue,
-      changeFromYesterday,
-      trend,
-      key: field,
-      details
-    };
+    return { label, value: rollingAvg, currentValue, changeFromYesterday, trend, key: field, details };
   });
 
   const sentimentHistory = (history || [])
@@ -218,66 +227,27 @@ export default function AthleteDetail() {
   const scoreEvolution = SCORE_KEYS.map((metric, i) => {
     const field = SCORE_FIELDS[i];
     let current = dashboard[field] ?? 0;
-    
-    if (field === 'influence_score') {
-      current = calculateInfluence();
-    }
-    
+    if (field === 'influence_score') current = calculateInfluence();
     const day7 = snap7?.[field] ?? current;
     const day30 = snap30?.[field] ?? current;
-    
     let rolling7d = current;
-    if (rollingData?.scores?.[field]) {
-      rolling7d = rollingData.scores[field].rolling_avg ?? current;
-    }
-    
+    if (rollingData?.scores?.[field]) rolling7d = rollingData.scores[field].rolling_avg ?? current;
     const change = current - (day30 || current);
     const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
-    return {
-      metric,
-      current,
-      rolling7d,
-      day7,
-      day30,
-      trend,
-      change: trend !== 'stable' ? (change > 0 ? `+${change}` : `${change}`) : '0'
-    };
+    return { metric, current, rolling7d, day7, day30, trend, change: trend !== 'stable' ? (change > 0 ? `+${change}` : `${change}`) : '0' };
   });
 
-  const radarData = scoreEvolution.map((s) => ({
-    metric: s.metric,
-    current: s.current,
-    rolling7d: s.rolling7d,
-    day30: s.day30
-  }));
+  const radarData = scoreEvolution.map((s) => ({ metric: s.metric, current: s.current, rolling7d: s.rolling7d, day30: s.day30 }));
 
   const alerts = [];
   if ((dashboard.sentiment_score ?? 70) < thresholds.sentiment.warning) {
-    alerts.push({
-      severity: (dashboard.sentiment_score ?? 0) < thresholds.sentiment.critical ? 'critical' : 'elevated',
-      type: 'sentiment_drop',
-      message: `Sentiment at ${dashboard.sentiment_score} - ${(dashboard.sentiment_score ?? 0) < 50 ? 'Critical' : 'Warning'} threshold`,
-      threshold: (dashboard.sentiment_score ?? 0) < 50 ? `<50` : `<60`,
-      current: dashboard.sentiment_score
-    });
+    alerts.push({ severity: (dashboard.sentiment_score ?? 0) < thresholds.sentiment.critical ? 'critical' : 'elevated', type: 'sentiment_drop', message: `Sentiment at ${dashboard.sentiment_score} — ${(dashboard.sentiment_score ?? 0) < 50 ? 'Critical' : 'Warning'} threshold`, threshold: (dashboard.sentiment_score ?? 0) < 50 ? `<50` : `<60`, current: dashboard.sentiment_score });
   }
   if ((dashboard.controversy_score ?? 0) > thresholds.controversy.warning) {
-    alerts.push({
-      severity: (dashboard.controversy_score ?? 0) > thresholds.controversy.critical ? 'critical' : 'elevated',
-      type: 'controversy',
-      message: `Controversy score ${dashboard.controversy_score} - above warning`,
-      threshold: '>30',
-      current: dashboard.controversy_score
-    });
+    alerts.push({ severity: (dashboard.controversy_score ?? 0) > thresholds.controversy.critical ? 'critical' : 'elevated', type: 'controversy', message: `Controversy score ${dashboard.controversy_score} — above warning threshold`, threshold: '>30', current: dashboard.controversy_score });
   }
   if (alerts.length === 0) {
-    alerts.push({
-      severity: 'nominal',
-      type: 'ok',
-      message: 'All metrics within normal range.',
-      threshold: '—',
-      current: '—'
-    });
+    alerts.push({ severity: 'nominal', type: 'ok', message: 'All metrics within normal range.', threshold: '—', current: '—' });
   }
 
   const statusConfig = {
@@ -287,13 +257,6 @@ export default function AthleteDetail() {
   };
   const alertConfig = statusConfig[alertLevel] || statusConfig.nominal;
   const AlertIcon = alertConfig.Icon;
-
-  const formatFollowers = (n) => {
-    if (n == null) return '—';
-    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-    return String(n);
-  };
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -307,43 +270,24 @@ export default function AthleteDetail() {
     return null;
   };
 
+  // Twitter followers display
+  const twitterFollowersFormatted = formatFollowers(dashboard.twitter_followers);
+  // Instagram — FIX 6: only show if we actually have a value
+  const instagramHandle = pd.instagram_handle || null;
+  const instagramFollowersFormatted = formatFollowers(dashboard.instagram_followers);
+  const showInstagram = instagramHandle || instagramFollowersFormatted;
+
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem', paddingBottom: disclaimerVisible ? '5rem' : '2rem' }}>
-      {/* PREMIUM ANIMATIONS & STYLES */}
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem', paddingBottom: '2rem' }}>
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes slideInStagger {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-        }
-        
-        @keyframes shimmer {
-          0% { background-position: -1000px 0; }
-          100% { background-position: 1000px 0; }
-        }
-        
-        @keyframes borderGlow {
-          0%, 100% { box-shadow: 0 0 5px rgba(201, 169, 97, 0.3); }
-          50% { box-shadow: 0 0 20px rgba(201, 169, 97, 0.6); }
-        }
-        
-        .fade-in {
-          animation: fadeIn 0.6s ease-out;
-        }
-        
-        .score-card {
-          animation: slideInStagger 0.5s ease-out backwards;
-        }
-        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInStagger { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+        @keyframes borderGlow { 0%, 100% { box-shadow: 0 0 5px rgba(201,169,97,0.3); } 50% { box-shadow: 0 0 20px rgba(201,169,97,0.6); } }
+        @keyframes compositeEntrance { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        .fade-in { animation: fadeIn 0.6s ease-out; }
+        .score-card { animation: slideInStagger 0.5s ease-out backwards; }
         .score-card:nth-child(1) { animation-delay: 0.05s; }
         .score-card:nth-child(2) { animation-delay: 0.1s; }
         .score-card:nth-child(3) { animation-delay: 0.15s; }
@@ -352,132 +296,118 @@ export default function AthleteDetail() {
         .score-card:nth-child(6) { animation-delay: 0.3s; }
         .score-card:nth-child(7) { animation-delay: 0.35s; }
         .score-card:nth-child(8) { animation-delay: 0.4s; }
-        
-        .change-indicator {
-          animation: pulse 2s ease-in-out infinite;
-        }
-        
-        .gold-shimmer {
-          background: linear-gradient(90deg, transparent, rgba(201, 169, 97, 0.3), transparent);
-          background-size: 1000px 100%;
-          animation: shimmer 3s infinite;
-        }
-        
-        .critical-glow {
-          animation: borderGlow 2s ease-in-out infinite;
-        }
-        
-        .score-grid {
-          display: grid;
-          gap: 1.5rem;
-          margin-bottom: 2rem;
-        }
-        
-        @media (min-width: 1024px) {
-          .score-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
-        }
-        
-        @media (min-width: 640px) and (max-width: 1023px) {
-          .score-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        
-        @media (max-width: 639px) {
-          .score-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-        
-        .progress-ring {
-          transform: rotate(-90deg);
-        }
-        
-        .progress-ring-circle {
-          transition: stroke-dashoffset 1s ease;
-        }
+        .change-indicator { animation: pulse 2s ease-in-out infinite; }
+        .gold-shimmer { background: linear-gradient(90deg, transparent, rgba(201,169,97,0.3), transparent); background-size: 1000px 100%; animation: shimmer 3s infinite; }
+        .critical-glow { animation: borderGlow 2s ease-in-out infinite; }
+        .composite-hero { animation: compositeEntrance 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.3s backwards; }
+        .score-grid { display: grid; gap: 1.5rem; margin-bottom: 2rem; }
+        @media (min-width: 1024px) { .score-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (min-width: 640px) and (max-width: 1023px) { .score-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 639px) { .score-grid { grid-template-columns: 1fr; } }
+        .progress-ring { transform: rotate(-90deg); }
+        .progress-ring-circle { transition: stroke-dashoffset 1s ease; }
+        .sr-badge { transition: all 0.3s ease; }
+        .sr-badge:hover { transform: translateY(-1px); filter: brightness(1.15); }
       `}</style>
 
-      {/* Header */}
-      <div className="fade-in" style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <button className="btn secondary" style={{ marginRight: '0.5rem' }} onClick={() => navigate('/')}>← Back</button>
-            <h1 style={{ display: 'inline-block', margin: 0, fontSize: '1.75rem', fontWeight: 700 }}>
-              {dashboard.athlete_name?.toUpperCase() || 'Athlete'}
-            </h1>
-            <span style={{ marginLeft: '0.5rem', background: `${alertConfig.color}20`, border: `2px solid ${alertConfig.color}`, color: alertConfig.color, padding: '4px 10px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700 }}>
-              {alertConfig.label}
-            </span>
-            <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#94a3b8' }}>
+      {/* ── HEADER ── */}
+      <div className="fade-in" style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem 2rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+
+          {/* Left: name + badges + meta */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.5rem' }}>
+              <button className="btn secondary" style={{ flexShrink: 0 }} onClick={() => navigate('/')}>← Back</button>
+              <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                {dashboard.athlete_name?.toUpperCase() || 'Athlete'}
+              </h1>
+              {/* Alert level badge */}
+              <span style={{ background: `${alertConfig.color}20`, border: `2px solid ${alertConfig.color}`, color: alertConfig.color, padding: '4px 10px', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>
+                {alertConfig.label}
+              </span>
+            </div>
+
+            {/* FIX 6: Only render platform line items when data exists */}
+            <div style={{ fontSize: '0.875rem', color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.4rem' }}>
               {dashboard.twitter_handle && (
-                <span>Twitter: {dashboard.twitter_handle} · {formatFollowers(dashboard.twitter_followers)} followers</span>
+                <span>
+                  𝕏 {dashboard.twitter_handle}
+                  {twitterFollowersFormatted && <span style={{ color: '#cbd5e1', marginLeft: '0.3rem' }}>· {twitterFollowersFormatted}</span>}
+                </span>
               )}
-              {(pd.instagram_handle || dashboard.instagram_followers) && (
-                <span style={{ marginLeft: '1rem' }}>
-                  Instagram: @{pd.instagram_handle || '—'} · {formatFollowers(dashboard.instagram_followers)} followers
+              {showInstagram && (
+                <span>
+                  IG {instagramHandle ? `@${instagramHandle}` : ''}
+                  {instagramFollowersFormatted && <span style={{ color: '#cbd5e1', marginLeft: '0.3rem' }}>· {instagramFollowersFormatted}</span>}
                 </span>
               )}
             </div>
-            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+
+            <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
               Last updated: {dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}
               {rollingData?.period_start && rollingData?.period_end && (
                 <span style={{ marginLeft: '1rem', color: COLORS.gold }}>
-                  7-day rolling average ({new Date(rollingData.period_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - {new Date(rollingData.period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})
+                  7-day rolling average ({new Date(rollingData.period_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – {new Date(rollingData.period_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})
                 </span>
               )}
             </p>
           </div>
-          <button className="btn" onClick={handleRefresh} disabled={refreshing} style={{ background: COLORS.gold, color: COLORS.navy, fontWeight: 700, boxShadow: '0 4px 12px rgba(201,169,97,0.3)' }}>
-            {refreshing ? 'Refreshing…' : 'Refresh data'}
-          </button>
+
+          {/* Right: Composite score + Sponsor Readiness + Refresh */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexShrink: 0 }}>
+
+            {/* FIX 5: Composite score hero */}
+            {compositeScore != null && (
+              <div className="composite-hero" style={{ textAlign: 'center', background: `${COLORS.gold}12`, border: `2px solid ${COLORS.gold}60`, borderRadius: 12, padding: '0.75rem 1.25rem', minWidth: 90 }}>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.2rem' }}>Composite</div>
+                <div style={{ fontSize: '2.6rem', fontWeight: 900, lineHeight: 1, color: compositeScore >= 70 ? COLORS.gold : compositeScore >= 55 ? COLORS.warning : COLORS.danger, textShadow: `0 0 24px ${COLORS.gold}30` }}>
+                  {compositeScore}
+                </div>
+                <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '0.2rem' }}>/100</div>
+              </div>
+            )}
+
+            {/* FIX 5: Sponsor Readiness traffic light */}
+            <div className="sr-badge" style={{ textAlign: 'center', background: srConfig.bg, border: `2px solid ${srConfig.border}`, borderRadius: 12, padding: '0.75rem 1.25rem', minWidth: 120 }}>
+              <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.35rem' }}>Sponsor Status</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                {/* Traffic light dot */}
+                <div style={{ width: 14, height: 14, borderRadius: '50%', background: srConfig.color, boxShadow: `0 0 8px ${srConfig.color}80`, flexShrink: 0 }} />
+                <span style={{ color: srConfig.color, fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.04em' }}>{srConfig.label}</span>
+              </div>
+              {dashboard.sponsor_readiness?.reason && (
+                <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '0.3rem', maxWidth: 130, textAlign: 'center' }}>{dashboard.sponsor_readiness.reason}</div>
+              )}
+            </div>
+
+            <button className="btn" onClick={handleRefresh} disabled={refreshing} style={{ background: COLORS.gold, color: COLORS.navy, fontWeight: 700, boxShadow: '0 4px 12px rgba(201,169,97,0.3)', alignSelf: 'flex-start' }}>
+              {refreshing ? 'Refreshing…' : 'Refresh data'}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="fade-in" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: `2px solid ${COLORS.border}` }}>
         {['overview', 'temporal', 'alerts', 'intelligence'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              background: activeTab === tab ? COLORS.cardBg : 'transparent',
-              border: 'none',
-              borderBottom: activeTab === tab ? `3px solid ${COLORS.gold}` : '3px solid transparent',
-              color: activeTab === tab ? COLORS.gold : '#94a3b8',
-              padding: '0.75rem 1.25rem',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              letterSpacing: '0.5px',
-              transition: 'all 0.3s ease'
-            }}
-          >
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? COLORS.cardBg : 'transparent', border: 'none', borderBottom: activeTab === tab ? `3px solid ${COLORS.gold}` : '3px solid transparent', color: activeTab === tab ? COLORS.gold : '#94a3b8', padding: '0.75rem 1.25rem', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', letterSpacing: '0.5px', transition: 'all 0.3s ease' }}>
             {tab}
           </button>
         ))}
       </div>
 
-      {/* OVERVIEW TAB */}
+      {/* ── OVERVIEW TAB ── */}
       {activeTab === 'overview' && (
         <>
           <div className="score-grid">
             {scores.map((s, idx) => {
               const isExpanded = expandedScore === s.label;
               const isDanger = s.label === 'Controversy' ? (s.value || 0) > thresholds.controversy.warning : (s.value || 0) < thresholds.sentiment.warning;
-              
               let changeColor = COLORS.neutral;
               if (s.changeFromYesterday !== null) {
-                if (s.label === 'Controversy') {
-                  changeColor = s.trend === 'down' ? COLORS.success : s.trend === 'up' ? COLORS.danger : COLORS.neutral;
-                } else {
-                  changeColor = s.trend === 'up' ? COLORS.success : s.trend === 'down' ? COLORS.danger : COLORS.neutral;
-                }
+                if (s.label === 'Controversy') { changeColor = s.trend === 'down' ? COLORS.success : s.trend === 'up' ? COLORS.danger : COLORS.neutral; }
+                else { changeColor = s.trend === 'up' ? COLORS.success : s.trend === 'down' ? COLORS.danger : COLORS.neutral; }
               }
-              
               let borderColor = COLORS.border;
               let hasShimmer = false;
               if (s.label === 'Controversy') {
@@ -487,103 +417,42 @@ export default function AthleteDetail() {
                 if (s.value >= 80) { borderColor = COLORS.gold; hasShimmer = true; }
                 else if (s.value < 60) borderColor = COLORS.danger + '60';
               }
-              
-              // Progress ring calculation
               const circumference = 2 * Math.PI * 45;
               const offset = circumference - (s.value / 100) * circumference;
-              
+
               return (
-                <div
-                  key={s.label}
-                  className={`score-card ${hasShimmer ? 'gold-shimmer' : ''}`}
+                <div key={s.label} className={`score-card ${hasShimmer ? 'gold-shimmer' : ''}`}
                   onClick={() => setExpandedScore(isExpanded ? null : s.label)}
-                  style={{
-                    background: `linear-gradient(135deg, ${COLORS.cardBg} 0%, rgba(26, 58, 92, 0.3) 100%)`,
-                    border: `2px solid ${borderColor}`,
-                    borderRadius: 12,
-                    padding: '2.5rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.15)',
-                    transform: isExpanded ? 'translateY(-4px) scale(1.02)' : 'none',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
-                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.5), 0 5px 16px rgba(201,169,97,0.25)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = isExpanded ? 'translateY(-4px) scale(1.02)' : 'none';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.15)';
-                  }}
+                  style={{ background: `linear-gradient(135deg, ${COLORS.cardBg} 0%, rgba(26,58,92,0.3) 100%)`, border: `2px solid ${borderColor}`, borderRadius: 12, padding: '2.5rem', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.15)', transform: isExpanded ? 'translateY(-4px) scale(1.02)' : 'none', position: 'relative', overflow: 'hidden' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.5), 0 5px 16px rgba(201,169,97,0.25)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = isExpanded ? 'translateY(-4px) scale(1.02)' : 'none'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.15)'; }}
                 >
-                  {/* Progress Ring Background */}
                   <svg style={{ position: 'absolute', top: '1rem', right: '1rem', opacity: 0.15 }} width="100" height="100">
-                    <circle
-                      className="progress-ring"
-                      stroke={s.label === 'Controversy' ? (s.value < 20 ? COLORS.success : COLORS.danger) : (s.value >= 80 ? COLORS.gold : '#94a3b8')}
-                      strokeWidth="3"
-                      fill="transparent"
-                      r="45"
-                      cx="50"
-                      cy="50"
-                      style={{
-                        strokeDasharray: `${circumference} ${circumference}`,
-                        strokeDashoffset: offset
-                      }}
-                    />
+                    <circle className="progress-ring" stroke={s.label === 'Controversy' ? (s.value < 20 ? COLORS.success : COLORS.danger) : (s.value >= 80 ? COLORS.gold : '#94a3b8')} strokeWidth="3" fill="transparent" r="45" cx="50" cy="50" style={{ strokeDasharray: `${circumference} ${circumference}`, strokeDashoffset: offset }} />
                   </svg>
-                  
                   <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
-                  
-                  {/* MASSIVE SCORE NUMBER */}
-                  <div style={{ 
-                    fontSize: '3.5rem', 
-                    fontWeight: 800, 
-                    lineHeight: 1, 
-                    marginBottom: '0.5rem',
-                    color: s.label === 'Controversy' 
-                      ? (s.value > 40 ? COLORS.danger : s.value > 30 ? COLORS.warning : COLORS.gold)
-                      : (s.value >= 80 ? COLORS.gold : s.value < 60 ? COLORS.danger : '#fff'),
-                    textShadow: hasShimmer ? `0 0 20px ${COLORS.gold}40` : 'none'
-                  }}>
+                  <div style={{ fontSize: '3.5rem', fontWeight: 800, lineHeight: 1, marginBottom: '0.5rem', color: s.label === 'Controversy' ? (s.value > 40 ? COLORS.danger : s.value > 30 ? COLORS.warning : COLORS.gold) : (s.value >= 80 ? COLORS.gold : s.value < 60 ? COLORS.danger : '#fff'), textShadow: hasShimmer ? `0 0 20px ${COLORS.gold}40` : 'none' }}>
                     {s.value ?? '—'}
                   </div>
-                  
-                  {/* PROMINENT Change indicator */}
                   {s.changeFromYesterday !== null && (
                     <div className="change-indicator" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.75rem', background: `${changeColor}20`, borderRadius: 8, border: `2px solid ${changeColor}40` }}>
-                      <span style={{ color: changeColor, fontSize: '1.4rem', fontWeight: 900 }}>
-                        {s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '●'}
-                      </span>
-                      <span style={{ color: changeColor, fontSize: '1.3rem', fontWeight: 800 }}>
-                        {s.changeFromYesterday > 0 ? '+' : ''}{s.changeFromYesterday}
-                      </span>
-                      <span style={{ color: changeColor, fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 700, marginLeft: '0.25rem' }}>
-                        vs yesterday
-                      </span>
+                      <span style={{ color: changeColor, fontSize: '1.4rem', fontWeight: 900 }}>{s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '●'}</span>
+                      <span style={{ color: changeColor, fontSize: '1.3rem', fontWeight: 800 }}>{s.changeFromYesterday > 0 ? '+' : ''}{s.changeFromYesterday}</span>
+                      <span style={{ color: changeColor, fontSize: '0.8rem', textTransform: 'uppercase', fontWeight: 700, marginLeft: '0.25rem' }}>vs yesterday</span>
                     </div>
                   )}
-                  
-                  {/* 7-day average label */}
                   {rollingData && (
                     <div style={{ fontSize: '0.8rem', color: COLORS.gold, marginBottom: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>7-DAY ROLLING AVERAGE</div>
                   )}
-                  
                   {(s.details?.summary || isExpanded) && (
                     <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.75rem', lineHeight: 1.5, borderTop: `1px solid ${COLORS.border}`, paddingTop: '0.75rem' }}>
                       {s.details?.summary || `Score: ${s.value ?? '—'}. Click for details.`}
                     </div>
                   )}
                   <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: COLORS.gold, fontWeight: 600 }}>{isExpanded ? '▲ Collapse' : '▼ Expand rationale'}</div>
-                  
-                  {/* NO BULLETS - Clean paragraph format */}
                   {isExpanded && (s.details?.breakdown?.length > 0 ? (
                     <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: `1px solid ${COLORS.border}`, fontSize: '0.8rem', color: '#cbd5e1', lineHeight: 1.6 }}>
-                      {s.details.breakdown.map((line, i) => (
-                        <p key={i} style={{ margin: i > 0 ? '0.75rem 0 0' : 0 }}>{line}</p>
-                      ))}
+                      {s.details.breakdown.map((line, i) => <p key={i} style={{ margin: i > 0 ? '0.75rem 0 0' : 0 }}>{line}</p>)}
                     </div>
                   ) : (
                     <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>No additional breakdown available.</div>
@@ -593,7 +462,7 @@ export default function AthleteDetail() {
             })}
           </div>
 
-          {/* CHARTS ROW */}
+          {/* Charts row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
             <div className="fade-in" style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Sentiment evolution</h3>
@@ -607,7 +476,7 @@ export default function AthleteDetail() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
-                    <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: '0.8rem' }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+                    <XAxis dataKey="date" stroke="#94a3b8" style={{ fontSize: '0.8rem' }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })} />
                     <YAxis stroke="#94a3b8" domain={[0, 100]} style={{ fontSize: '0.8rem' }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Area type="monotone" dataKey="sentiment" stroke={COLORS.gold} fill="url(#sentimentGradient)" strokeWidth={3} />
@@ -624,7 +493,8 @@ export default function AthleteDetail() {
                 <ResponsiveContainer width="100%" height={300}>
                   <RadarChart data={radarData}>
                     <PolarGrid stroke={COLORS.border} strokeWidth={1.5} />
-                    <PolarAngleAxis dataKey="metric" stroke="#cbd5e1" style={{ fontSize: '0.85rem', fontWeight: 600 }} />
+                    {/* FIX: larger font on radar labels */}
+                    <PolarAngleAxis dataKey="metric" stroke="#cbd5e1" style={{ fontSize: '0.95rem', fontWeight: 600 }} />
                     <PolarRadiusAxis stroke="#94a3b8" domain={[0, 100]} style={{ fontSize: '0.75rem' }} />
                     <Radar name="Today's score" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.4} strokeWidth={4} />
                     <Radar name="7-day average" dataKey="rolling7d" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.15} strokeDasharray="8 4" strokeWidth={3} />
@@ -641,12 +511,16 @@ export default function AthleteDetail() {
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Platform performance</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                  <div style={{ fontWeight: 600 }}>Twitter · @{dashboard.twitter_handle?.replace('@', '') || '—'}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{formatFollowers(dashboard.twitter_followers)} followers</div>
+                  <div style={{ fontWeight: 600 }}>Twitter · {dashboard.twitter_handle || '—'}</div>
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                    {twitterFollowersFormatted ? `${twitterFollowersFormatted} followers` : 'Follower data pending'}
+                  </div>
                 </div>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                  <div style={{ fontWeight: 600 }}>Instagram · @{pd.instagram_handle || '—'}</div>
-                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{formatFollowers(dashboard.instagram_followers)} followers</div>
+                  <div style={{ fontWeight: 600 }}>Instagram{instagramHandle ? ` · @${instagramHandle}` : ''}</div>
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                    {instagramFollowersFormatted ? `${instagramFollowersFormatted} followers` : 'Follower data pending'}
+                  </div>
                 </div>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
                   <div style={{ fontWeight: 600 }}>News</div>
@@ -675,7 +549,7 @@ export default function AthleteDetail() {
           </div>
 
           {/* Timeline */}
-          {(dashboard.timeline_events?.length > 0) && (
+          {dashboard.timeline_events?.length > 0 && (
             <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Timeline</h3>
               {dashboard.timeline_events.slice(0, 10).map((ev, i) => (
@@ -690,52 +564,46 @@ export default function AthleteDetail() {
         </>
       )}
 
-      {/* TEMPORAL TAB - 7-DAY AVERAGE AS HERO */}
+      {/* ── TEMPORAL TAB ── */}
       {activeTab === 'temporal' && (
-        <>
-          <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', overflowX: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `3px solid ${COLORS.gold}` }}>
-                  <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Today's score<br/><span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 400 }}>(24hr snapshot)</span></th>
-                  {/* 7-DAY AVERAGE AS HERO */}
-                  <th style={{ textAlign: 'right', padding: '1.5rem', fontSize: '1rem', color: COLORS.gold, fontWeight: 900, textTransform: 'uppercase', background: `${COLORS.gold}15`, borderLeft: `3px solid ${COLORS.gold}`, borderRight: `3px solid ${COLORS.gold}` }}>
-                    7-DAY AVERAGE<br/><span style={{ fontSize: '0.7rem', fontWeight: 600 }}>(smoothed trend)</span>
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 week ago</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 month ago</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Monthly trend</th>
+        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', overflowX: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
+          <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: `3px solid ${COLORS.gold}` }}>
+                <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
+                <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Today's score<br/><span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 400 }}>(24hr snapshot)</span></th>
+                <th style={{ textAlign: 'right', padding: '1.5rem', fontSize: '1rem', color: COLORS.gold, fontWeight: 900, textTransform: 'uppercase', background: `${COLORS.gold}15`, borderLeft: `3px solid ${COLORS.gold}`, borderRight: `3px solid ${COLORS.gold}` }}>
+                  7-DAY AVERAGE<br/><span style={{ fontSize: '0.7rem', fontWeight: 600 }}>(smoothed trend)</span>
+                </th>
+                <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 week ago</th>
+                <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 month ago</th>
+                <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Monthly trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scoreEvolution.map((row) => (
+                <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
+                  <td style={{ padding: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>{row.metric}</td>
+                  <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 600, fontSize: '1rem', color: '#cbd5e1' }}>{row.current}</td>
+                  <td style={{ padding: '1.5rem', textAlign: 'right', color: COLORS.gold, fontWeight: 900, fontSize: '1.5rem', background: `${COLORS.gold}10`, borderLeft: `3px solid ${COLORS.gold}40`, borderRight: `3px solid ${COLORS.gold}40`, textShadow: `0 0 10px ${COLORS.gold}30` }}>{row.rolling7d}</td>
+                  <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day7}</td>
+                  <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day30}</td>
+                  <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '0.95rem' }}>
+                    <span style={{ color: row.trend === 'up' ? COLORS.success : row.trend === 'down' ? COLORS.danger : COLORS.neutral }}>
+                      {row.trend === 'up' ? '↗ ' : row.trend === 'down' ? '↘ ' : '→ '}
+                      {row.trend === 'up' ? 'Improving' : row.trend === 'down' ? 'Declining' : 'Stable'}
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem' }}>({row.change})</span>
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {scoreEvolution.map((row) => (
-                  <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
-                    <td style={{ padding: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>{row.metric}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 600, fontSize: '1rem', color: '#cbd5e1' }}>{row.current}</td>
-                    {/* HERO 7-DAY AVERAGE */}
-                    <td style={{ padding: '1.5rem', textAlign: 'right', color: COLORS.gold, fontWeight: 900, fontSize: '1.5rem', background: `${COLORS.gold}10`, borderLeft: `3px solid ${COLORS.gold}40`, borderRight: `3px solid ${COLORS.gold}40`, textShadow: `0 0 10px ${COLORS.gold}30` }}>
-                      {row.rolling7d}
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day7}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day30}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '0.95rem' }}>
-                      <span style={{ color: row.trend === 'up' ? COLORS.success : row.trend === 'down' ? COLORS.danger : COLORS.neutral }}>
-                        {row.trend === 'up' ? '↗ ' : row.trend === 'down' ? '↘ ' : '→ '}
-                        {row.trend === 'up' ? 'Improving' : row.trend === 'down' ? 'Declining' : 'Stable'}
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem' }}>({row.change})</span>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* ALERTS TAB */}
+      {/* ── ALERTS TAB ── */}
       {activeTab === 'alerts' && (
         <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
           <div className={alertLevel === 'critical' ? 'critical-glow' : ''} style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', padding: '1.5rem', background: `${alertConfig.color}15`, border: `2px solid ${alertConfig.color}40`, borderRadius: 8 }}>
@@ -747,17 +615,7 @@ export default function AthleteDetail() {
           </div>
           <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Active alerts</h3>
           {alerts.map((alert, i) => (
-            <div
-              key={i}
-              style={{
-                padding: '1.25rem',
-                marginBottom: '1rem',
-                background: `${(alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success)}15`,
-                border: `2px solid ${(alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success)}40`,
-                borderRadius: 8,
-                borderLeft: `4px solid ${alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success}`
-              }}
-            >
+            <div key={i} style={{ padding: '1.25rem', marginBottom: '1rem', background: `${(alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success)}15`, border: `2px solid ${(alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success)}40`, borderRadius: 8, borderLeft: `4px solid ${alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success}` }}>
               <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem', color: alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success }}>{alert.severity}</div>
               <div style={{ marginTop: '0.5rem', fontSize: '0.95rem' }}>{alert.message}</div>
               <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.5rem' }}>Threshold: {alert.threshold} · Current: {alert.current}</div>
@@ -781,25 +639,21 @@ export default function AthleteDetail() {
         </div>
       )}
 
-      {/* INTELLIGENCE TAB */}
+      {/* ── INTELLIGENCE TAB ── */}
       {activeTab === 'intelligence' && (
         <>
           {pd.strategic_intelligence && (
             <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2.5rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
               <h3 style={{ margin: '0 0 2rem', color: COLORS.gold, fontSize: '1.5rem', fontWeight: 800 }}>Strategic Intelligence</h3>
-              
               {pd.strategic_intelligence.strategic_overview && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.border}20`, borderRadius: 8, borderLeft: `4px solid ${COLORS.gold}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                     <Target size={24} color={COLORS.gold} />
                     <h4 style={{ margin: 0, color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700 }}>Strategic Overview</h4>
                   </div>
-                  <p style={{ lineHeight: 1.7, color: '#e2e8f0', margin: 0, fontSize: '0.95rem' }}>
-                    {pd.strategic_intelligence.strategic_overview}
-                  </p>
+                  <p style={{ lineHeight: 1.7, color: '#e2e8f0', margin: 0, fontSize: '0.95rem' }}>{pd.strategic_intelligence.strategic_overview}</p>
                 </div>
               )}
-
               {pd.strategic_intelligence.key_risks?.length > 0 && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.danger}10`, border: `2px solid ${COLORS.danger}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.danger}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -807,13 +661,10 @@ export default function AthleteDetail() {
                     <h4 style={{ margin: 0, color: COLORS.danger, fontSize: '1.1rem', fontWeight: 700 }}>Key Risks</h4>
                   </div>
                   <div style={{ color: '#fca5a5', lineHeight: 1.8, fontSize: '0.95rem' }}>
-                    {pd.strategic_intelligence.key_risks.map((risk, i) => (
-                      <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{risk}</p>
-                    ))}
+                    {pd.strategic_intelligence.key_risks.map((risk, i) => <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{risk}</p>)}
                   </div>
                 </div>
               )}
-
               {pd.strategic_intelligence.immediate_recommendations?.length > 0 && (
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.success}10`, border: `2px solid ${COLORS.success}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.success}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -821,13 +672,10 @@ export default function AthleteDetail() {
                     <h4 style={{ margin: 0, color: COLORS.success, fontSize: '1.1rem', fontWeight: 700 }}>Immediate Recommendations</h4>
                   </div>
                   <div style={{ color: '#86efac', lineHeight: 1.8, fontSize: '0.95rem' }}>
-                    {pd.strategic_intelligence.immediate_recommendations.map((rec, i) => (
-                      <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{rec}</p>
-                    ))}
+                    {pd.strategic_intelligence.immediate_recommendations.map((rec, i) => <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{rec}</p>)}
                   </div>
                 </div>
               )}
-
               {pd.strategic_intelligence.watch_outs?.length > 0 && (
                 <div style={{ padding: '1.5rem', background: `${COLORS.warning}10`, border: `2px solid ${COLORS.warning}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.warning}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -835,19 +683,16 @@ export default function AthleteDetail() {
                     <h4 style={{ margin: 0, color: COLORS.warning, fontSize: '1.1rem', fontWeight: 700 }}>Watch-Outs</h4>
                   </div>
                   <div style={{ color: '#fcd34d', lineHeight: 1.8, fontSize: '0.95rem' }}>
-                    {pd.strategic_intelligence.watch_outs.map((watch, i) => (
-                      <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{watch}</p>
-                    ))}
+                    {pd.strategic_intelligence.watch_outs.map((watch, i) => <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{watch}</p>)}
                   </div>
                 </div>
               )}
             </div>
           )}
-
           <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Overall perception summary</h3>
             <p style={{ lineHeight: 1.7, color: '#e2e8f0', fontSize: '0.95rem' }}>
-              {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}). Twitter and Instagram follower counts and news mentions feed into these scores.`}
+              {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}).`}
             </p>
           </div>
         </>
@@ -869,7 +714,7 @@ export default function AthleteDetail() {
         {(dashboard.recent_instagram_posts?.length > 0 || pd.recent_instagram_posts?.length > 0) && (
           <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent Instagram</h3>
-            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>@{pd.instagram_handle || '—'}</div>
+            {instagramHandle && <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>@{instagramHandle}</div>}
             {(dashboard.recent_instagram_posts || pd.recent_instagram_posts || []).slice(0, 5).map((p, i) => (
               <div key={p.id || i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
                 <div style={{ fontSize: '0.75rem', color: '#64748b' }}>♥ {p.likes ?? 0} · 💬 {p.comments ?? 0}</div>
@@ -891,71 +736,28 @@ export default function AthleteDetail() {
         )}
       </div>
 
-      {/* AUTO-HIDING DISCLAIMER */}
+      {/* ── DISCLAIMER — fixed bottom bar, no floating button ── */}
       {disclaimerVisible && (
-        <div style={{ 
-          position: 'fixed', 
-          bottom: 0, 
-          left: 0, 
-          right: 0, 
-          background: 'rgba(26, 58, 92, 0.98)', 
-          backdropFilter: 'blur(10px)',
-          borderTop: `2px solid ${COLORS.gold}`, 
-          padding: '1rem 2rem', 
-          fontSize: '0.75rem', 
-          color: '#94a3b8',
-          lineHeight: 1.5,
-          zIndex: 1000,
-          boxShadow: '0 -4px 12px rgba(0,0,0,0.3)'
-        }}>
-          <button
-            onClick={() => setDisclaimerVisible(false)}
-            style={{
-              position: 'absolute',
-              top: '0.5rem',
-              right: '1rem',
-              background: 'transparent',
-              border: 'none',
-              color: COLORS.gold,
-              cursor: 'pointer',
-              fontSize: '1.2rem',
-              padding: '0.25rem'
-            }}
-            title="Hide disclaimer"
-          >
-            <X size={20} />
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(10,14,26,0.97)', backdropFilter: 'blur(12px)', borderTop: `2px solid ${COLORS.gold}60`, padding: '0.9rem 2rem', fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.5, zIndex: 1000, boxShadow: '0 -4px 16px rgba(0,0,0,0.4)' }}>
+          <button onClick={() => setDisclaimerVisible(false)} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: '1.5rem', background: 'transparent', border: 'none', color: COLORS.gold, cursor: 'pointer', padding: '0.25rem', display: 'flex', alignItems: 'center' }} title="Dismiss">
+            <X size={18} />
           </button>
-          <div style={{ maxWidth: '1400px', margin: '0 auto', paddingRight: '3rem' }}>
-            <strong style={{ color: COLORS.gold }}>Legal Disclaimer:</strong> This dashboard presents data-driven intelligence based on publicly available information and automated analysis. Scores are indicative assessments and should not be considered definitive measures of reputation or character. Blue & Lintell Limited provides this information for strategic guidance purposes only and accepts no liability for decisions made based on this data. All data is subject to limitations in collection methods, API availability, and algorithmic interpretation. Users should conduct independent verification and exercise professional judgement when acting on insights provided.
+          <div style={{ maxWidth: '1200px', margin: '0 auto', paddingRight: '3rem' }}>
+            <strong style={{ color: COLORS.gold }}>Legal Disclaimer: </strong>
+            This dashboard presents data-driven intelligence based on publicly available information and automated analysis. Scores are indicative assessments only and should not be considered definitive measures of reputation or character. Blue & Lintell Limited provides this information for strategic guidance purposes only and accepts no liability for decisions made based on this data. Users should exercise independent professional judgement when acting on insights provided.
           </div>
         </div>
       )}
 
+      {/* Small re-open link — bottom left, doesn't overlap watermark */}
       {!disclaimerVisible && (
-        <button
-          onClick={() => setDisclaimerVisible(true)}
-          style={{
-            position: 'fixed',
-            bottom: '1rem',
-            right: '1.5rem',
-            background: COLORS.navy,
-            border: `2px solid ${COLORS.gold}`,
-            color: COLORS.gold,
-            padding: '0.5rem 1rem',
-            borderRadius: 8,
-            fontSize: '0.75rem',
-            cursor: 'pointer',
-            fontWeight: 600,
-            zIndex: 1000,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-          }}
-        >
-          Show Legal Disclaimer
+        <button onClick={() => setDisclaimerVisible(true)} style={{ position: 'fixed', bottom: '1rem', right: '1.5rem', background: 'transparent', border: 'none', color: '#475569', padding: 0, fontSize: '0.7rem', cursor: 'pointer', fontWeight: 600, letterSpacing: '0.03em', zIndex: 999, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+          Legal disclaimer
         </button>
       )}
 
-      {/* Watermark */}
-      <div style={{ position: 'fixed', bottom: disclaimerVisible ? '5rem' : '1rem', left: '1.5rem', opacity: 0.3, fontSize: '0.7rem', color: COLORS.gold, fontWeight: 600, letterSpacing: '1px' }}>
+      {/* Watermark — bottom left, always visible */}
+      <div style={{ position: 'fixed', bottom: '1rem', left: '1.5rem', opacity: 0.3, fontSize: '0.7rem', color: COLORS.gold, fontWeight: 600, letterSpacing: '1px', pointerEvents: 'none', zIndex: 998 }}>
         Blue & Lintell Intelligence
       </div>
     </div>
