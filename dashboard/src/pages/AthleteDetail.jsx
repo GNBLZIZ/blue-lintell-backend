@@ -257,7 +257,7 @@ export default function AthleteDetail() {
   const showInstagram = instagramHandle || instagramFollowersFormatted;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0a0e1a 0%, #151b2e 100%)', color: '#fff', padding: '1.5rem', paddingBottom: '2rem' }}>
+    <div style={{ color: '#fff', padding: '1.5rem', paddingBottom: '2rem' }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideInStagger { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
@@ -770,10 +770,7 @@ export default function AthleteDetail() {
         </button>
       )}
 
-      {/* Watermark — bottom left, always visible */}
-      <div style={{ position: 'fixed', bottom: '1rem', left: '1.5rem', opacity: 0.3, fontSize: '0.7rem', color: COLORS.gold, fontWeight: 600, letterSpacing: '1px', pointerEvents: 'none', zIndex: 998 }}>
-        Blue & Lintell Intelligence
-      </div>
+
     </div>
   );
 }
