@@ -26,15 +26,7 @@ const SCORE_FIELDS = [
   'authenticity_score', 'controversy_score', 'relevance_score', 'influence_score'
 ];
 
-const INFLUENCE_RATIONALE = {
-  summary: "Combined measure of reach and impact across all platforms. Reflects total audience size, engagement quality, and media amplification.",
-  breakdown: [
-    "Follower base across Twitter and Instagram provides foundation score",
-    "Engagement rates (likes, comments, shares) multiply base impact",
-    "News coverage and media mentions add authority and amplification",
-    "Higher engagement with smaller audience can outperform large passive following"
-  ]
-};
+
 
 // Sponsor Readiness badge config
 const SPONSOR_READINESS_CONFIG = {
@@ -149,18 +141,7 @@ export default function AthleteDetail() {
     return String(n);
   };
 
-  const calculateInfluence = () => {
-    const twitterFollowers = dashboard.twitter_followers || 0;
-    const instagramFollowers = dashboard.instagram_followers || 0;
-    const totalFollowers = twitterFollowers + instagramFollowers;
-    let baseScore = Math.min(100, Math.sqrt(totalFollowers / 10000) * 50);
-    const twitterEngagement = dashboard.avg_engagement_rate_twitter || 0;
-    const instagramEngagement = dashboard.avg_engagement_rate_instagram || 0;
-    const avgEngagement = (twitterEngagement + instagramEngagement) / 2;
-    const engagementMultiplier = 0.5 + (avgEngagement / 10);
-    const newsBonus = Math.min(20, (dashboard.news_articles_count || 0) * 2);
-    return Math.min(100, Math.max(0, Math.round((baseScore * engagementMultiplier) + newsBonus)));
-  };
+
 
   // ── FIX 5: Composite score & Sponsor Readiness ──
   // Pull from backend if available, otherwise derive
@@ -192,7 +173,6 @@ export default function AthleteDetail() {
   const scores = SCORE_KEYS.map((label, i) => {
     const field = SCORE_FIELDS[i];
     let currentValue = dashboard[field] ?? '—';
-    if (field === 'influence_score') currentValue = calculateInfluence();
     let rollingAvg = currentValue;
     let changeFromYesterday = null;
     let trend = 'stable';
@@ -201,7 +181,7 @@ export default function AthleteDetail() {
       changeFromYesterday = rollingData.scores[field].change_from_yesterday ?? null;
       trend = rollingData.scores[field].trend ?? 'stable';
     }
-    const details = label === 'Influence' ? INFLUENCE_RATIONALE : pd[label];
+    const details = pd[label];
     return { label, value: rollingAvg, currentValue, changeFromYesterday, trend, key: field, details };
   });
 
@@ -227,7 +207,6 @@ export default function AthleteDetail() {
   const scoreEvolution = SCORE_KEYS.map((metric, i) => {
     const field = SCORE_FIELDS[i];
     let current = dashboard[field] ?? 0;
-    if (field === 'influence_score') current = calculateInfluence();
     const day7 = snap7?.[field] ?? current;
     const day30 = snap30?.[field] ?? current;
     let rolling7d = current;
