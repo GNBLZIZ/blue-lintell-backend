@@ -30,9 +30,9 @@ const SCORE_FIELDS = [
 
 // Sponsor Readiness badge config
 const SPONSOR_READINESS_CONFIG = {
-  GREEN:  { color: '#10b981', bg: '#10b98118', border: '#10b98140', label: 'SPONSOR READY',    icon: '●' },
-  AMBER:  { color: '#f59e0b', bg: '#f59e0b18', border: '#f59e0b40', label: 'REVIEW ADVISED',  icon: '●' },
-  RED:    { color: '#dc2626', bg: '#dc262618', border: '#dc262640', label: 'SPONSOR RISK',     icon: '●' },
+  GREEN:  { color: '#10b981', bg: '#10b98118', border: '#10b98140', label: 'SPONSOR READY' },
+  AMBER:  { color: '#f59e0b', bg: '#f59e0b18', border: '#f59e0b40', label: 'REVIEW ADVISED' },
+  RED:    { color: '#dc2626', bg: '#dc262618', border: '#dc262640', label: 'SPONSOR RISK' },
 };
 
 export default function AthleteDetail() {
@@ -230,9 +230,9 @@ export default function AthleteDetail() {
   }
 
   const statusConfig = {
-    nominal: { color: COLORS.success, label: 'NOMINAL', Icon: Shield },
-    elevated: { color: COLORS.warning, label: 'ELEVATED', Icon: AlertTriangle },
-    critical: { color: COLORS.danger, label: 'CRITICAL', Icon: AlertTriangle }
+    nominal:  { color: COLORS.success, label: 'HEALTHY',  Icon: Shield },
+    elevated: { color: COLORS.warning, label: 'WARNING',  Icon: AlertTriangle },
+    critical: { color: COLORS.danger,  label: 'CRITICAL', Icon: AlertTriangle }
   };
   const alertConfig = statusConfig[alertLevel] || statusConfig.nominal;
   const AlertIcon = alertConfig.Icon;
@@ -338,7 +338,7 @@ export default function AthleteDetail() {
             {/* FIX 5: Composite score hero */}
             {compositeScore != null && (
               <div className="composite-hero" style={{ textAlign: 'center', background: `${COLORS.gold}12`, border: `2px solid ${COLORS.gold}60`, borderRadius: 12, padding: '0.75rem 1.25rem', minWidth: 90 }}>
-                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.2rem' }}>Composite</div>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.2rem' }}>Overall Score</div>
                 <div style={{ fontSize: '2.6rem', fontWeight: 900, lineHeight: 1, color: compositeScore >= 70 ? COLORS.gold : compositeScore >= 55 ? COLORS.warning : COLORS.danger, textShadow: `0 0 24px ${COLORS.gold}30` }}>
                   {compositeScore}
                 </div>
@@ -585,35 +585,70 @@ export default function AthleteDetail() {
       {/* ── ALERTS TAB ── */}
       {activeTab === 'alerts' && (
         <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-          <div className={alertLevel === 'critical' ? 'critical-glow' : ''} style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', padding: '1.5rem', background: `${alertConfig.color}15`, border: `2px solid ${alertConfig.color}40`, borderRadius: 8 }}>
-            <AlertIcon size={32} color={alertConfig.color} />
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '1.1rem', color: alertConfig.color, letterSpacing: '0.5px' }}>THREAT LEVEL: {alertConfig.label}</div>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.25rem' }}>Last updated: {dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}</div>
+          {/* Status banner */}
+          <div className={alertLevel === 'critical' ? 'critical-glow' : ''} style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem', padding: '1.75rem', background: `${alertConfig.color}12`, border: `2px solid ${alertConfig.color}50`, borderRadius: 10 }}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${alertConfig.color}20`, border: `2px solid ${alertConfig.color}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <AlertIcon size={24} color={alertConfig.color} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: '1.3rem', color: alertConfig.color, letterSpacing: '0.02em' }}>
+                {alertConfig.label === 'HEALTHY' ? 'Reputation is healthy' : alertConfig.label === 'WARNING' ? 'Reputation needs attention' : 'Reputation at risk — act now'}
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+                {alertConfig.label === 'HEALTHY'
+                  ? 'All key metrics are within normal range. No immediate action required.'
+                  : alertConfig.label === 'WARNING'
+                  ? 'One or more metrics have moved outside normal range. Review recommended.'
+                  : 'Critical metrics detected. Immediate strategic response advised.'}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Last checked</div>
+              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.2rem' }}>{dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}</div>
             </div>
           </div>
-          <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Active alerts</h3>
-          {alerts.map((alert, i) => (
-            <div key={i} style={{ padding: '1.25rem', marginBottom: '1rem', background: `${(alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success)}15`, border: `2px solid ${(alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success)}40`, borderRadius: 8, borderLeft: `4px solid ${alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success}` }}>
-              <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem', color: alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success }}>{alert.severity}</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '0.95rem' }}>{alert.message}</div>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.5rem' }}>Threshold: {alert.threshold} · Current: {alert.current}</div>
-            </div>
-          ))}
-          <h3 style={{ margin: '2rem 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Alert threshold configuration</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-            <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-              <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Sentiment</div>
-              <div style={{ color: COLORS.danger, marginBottom: '0.25rem' }}>Critical &lt;50</div>
-              <div style={{ color: COLORS.warning, marginBottom: '0.25rem' }}>Warning &lt;60</div>
-              <div style={{ color: COLORS.success }}>Optimal &gt;70</div>
-            </div>
-            <div style={{ padding: '1rem', background: `${COLORS.border}40`, borderRadius: 8 }}>
-              <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Controversy</div>
-              <div style={{ color: COLORS.danger, marginBottom: '0.25rem' }}>Critical &gt;40</div>
-              <div style={{ color: COLORS.warning, marginBottom: '0.25rem' }}>Warning &gt;30</div>
-              <div style={{ color: COLORS.success }}>Optimal &lt;20</div>
-            </div>
+
+          {/* Active alerts */}
+          <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active alerts</h3>
+          {alerts.map((alert, i) => {
+            const isOk = alert.severity === 'nominal';
+            const alertColour = alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success;
+            const severityLabel = alert.severity === 'critical' ? 'CRITICAL' : alert.severity === 'elevated' ? 'WARNING' : 'ALL CLEAR';
+            return (
+              <div key={i} style={{ padding: '1.25rem 1.5rem', marginBottom: '0.75rem', background: `${alertColour}10`, border: `1px solid ${alertColour}30`, borderLeft: `4px solid ${alertColour}`, borderRadius: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: alertColour, background: `${alertColour}20`, padding: '2px 8px', borderRadius: 4 }}>{severityLabel}</span>
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.95rem', fontWeight: 500, color: '#e2e8f0' }}>{alert.message}</div>
+                  </div>
+                  {!isOk && (
+                    <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#64748b' }}>
+                      <div>Threshold: <span style={{ color: '#94a3b8' }}>{alert.threshold}</span></div>
+                      <div>Current: <span style={{ color: alertColour, fontWeight: 700 }}>{alert.current}</span></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Threshold reference */}
+          <h3 style={{ margin: '2rem 0 1rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>How alerts are triggered</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            {[
+              { label: 'Sentiment', desc: 'Measures public positivity toward the athlete', critical: 'Below 50', warning: 'Below 60', healthy: 'Above 70' },
+              { label: 'Controversy', desc: 'Measures negative incidents and public backlash', critical: 'Above 40', warning: 'Above 30', healthy: 'Below 20' },
+            ].map(({ label, desc, critical, warning, healthy }) => (
+              <div key={label} style={{ padding: '1.25rem', background: `${COLORS.border}30`, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.25rem' }}>{label}</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '1rem' }}>{desc}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: '#94a3b8' }}>🟢 Healthy</span><span style={{ color: COLORS.success, fontWeight: 600 }}>{healthy}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: '#94a3b8' }}>🟡 Warning</span><span style={{ color: COLORS.warning, fontWeight: 600 }}>{warning}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: '#94a3b8' }}>🔴 Critical</span><span style={{ color: COLORS.danger, fontWeight: 600 }}>{critical}</span></div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
