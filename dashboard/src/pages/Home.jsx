@@ -148,37 +148,26 @@ export default function Home() {
         .stat-bar-fill { transition: width 1.2s cubic-bezier(0.4,0,0.2,1); }
       `}</style>
 
-      {/* ── PAGE HEADER ── */}
-      <div style={{ borderBottom: `1px solid ${COLORS.border}`, padding: '1.5rem 2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(21,27,46,0.8)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: 3, height: 28, background: COLORS.gold, borderRadius: 2 }} />
-          <div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, letterSpacing: '-0.01em', color: '#fff' }}>BLUE <span style={{ color: COLORS.gold }}>&</span> LINTELL</div>
-            <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.15em', marginTop: '1px' }}>Intelligence Dashboard</div>
-          </div>
-        </div>
-
-        {/* Fleet status summary */}
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-          {criticalCount > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS.danger, animation: 'pulseRing 2s infinite' }} />
-              <span style={{ fontSize: '0.8rem', color: COLORS.danger, fontWeight: 700 }}>{criticalCount} Critical</span>
-            </div>
-          )}
-          {warningCount > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS.warning }} />
-              <span style={{ fontSize: '0.8rem', color: COLORS.warning, fontWeight: 700 }}>{warningCount} Warning</span>
-            </div>
-          )}
+      {/* Fleet status sub-bar — sits below global nav */}
+      <div style={{ borderBottom: `1px solid ${COLORS.border}`, padding: '0.6rem 2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1.5rem', background: 'rgba(10,14,26,0.6)' }}>
+        {criticalCount > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS.success }} />
-            <span style={{ fontSize: '0.8rem', color: COLORS.success, fontWeight: 700 }}>{healthyCount} Healthy</span>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: COLORS.danger, animation: 'pulseRing 2s infinite' }} />
+            <span style={{ fontSize: '0.75rem', color: COLORS.danger, fontWeight: 700 }}>{criticalCount} Critical</span>
           </div>
-          <div style={{ height: 20, width: 1, background: COLORS.border }} />
-          <div style={{ fontSize: '0.75rem', color: '#475569' }}>{dashboards.length} athlete{dashboards.length !== 1 ? 's' : ''} monitored</div>
+        )}
+        {warningCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: COLORS.warning }} />
+            <span style={{ fontSize: '0.75rem', color: COLORS.warning, fontWeight: 700 }}>{warningCount} Warning</span>
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: COLORS.success }} />
+          <span style={{ fontSize: '0.75rem', color: COLORS.success, fontWeight: 700 }}>{healthyCount} Healthy</span>
         </div>
+        <div style={{ height: 14, width: 1, background: COLORS.border }} />
+        <div style={{ fontSize: '0.7rem', color: '#475569' }}>{dashboards.length} athlete{dashboards.length !== 1 ? 's' : ''} monitored</div>
       </div>
 
       {/* ── MAIN CONTENT ── */}
@@ -312,10 +301,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Watermark */}
-      <div style={{ textAlign: 'center', padding: '2rem', fontSize: '0.65rem', color: '#1e293b', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>
-        Blue & Lintell Intelligence · Confidential
-      </div>
     </div>
   );
 }
