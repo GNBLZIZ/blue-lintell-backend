@@ -1141,20 +1141,103 @@ async function saveHistoricalSnapshot(athleteId, dashboardData) {
 }
 
 // ==================== TIMELINE ====================
-
 function generateTimeline(tweets, news, instagramPosts) {
   const events = [];
+
+  // ── Tweets: individual entries for high-engagement posts ──
   (tweets || []).forEach(t => {
     const eng = (t.likes || 0) + (t.retweets || 0) + (t.replies || 0);
-    if (eng > 500) events.push({ date: new Date(t.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'TWITTER', title: (t.text || '').substring(0, 100), description: `${(t.likes || 0).toLocaleString()} likes, ${(t.retweets || 0).toLocaleString()} retweets`, sentiment: t.sentiment?.sentiment || 'NEUTRAL' });
+    if (eng > 500) events.push({
+      date: t.createdAt ? new Date(t.createdAt).toISOString() : null,
+      platforms: 'X',
+      title: (t.text || '').substring(0, 100),
+      description: `${(t.likes || 0).toLocaleString()} likes · ${(t.retweets || 0).toLocaleString()} reposts`,
+      sentiment: t.sentiment?.sentiment || 'NEUTRAL',
+      type: 'tweet'
+    });
   });
-  (news || []).forEach(a => events.push({ date: new Date(a.publishedAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'NEWS MEDIA', title: a.title, description: (a.description || a.content || '').substring(0, 200), sentiment: a.sentiment?.sentiment || 'NEUTRAL' }));
+
+  // ── Instagram: individual entries ──
   (instagramPosts || []).slice(0, 5).forEach(p => {
     const ts = p.timestamp || p.takenAt || p.createdAt;
-    if (ts) events.push({ date: new Date(ts).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }), platforms: 'INSTAGRAM', title: (p.caption || 'Instagram post').substring(0, 100), description: `${(p.likes || 0).toLocaleString()} likes, ${(p.comments || 0).toLocaleString()} comments`, sentiment: 'NEUTRAL' });
+    if (ts) events.push({
+      date: new Date(ts).toISOString(),
+      platforms: 'INSTAGRAM',
+      title: (p.caption || 'Instagram post').substring(0, 100),
+      description: `${(p.likes || 0).toLocaleString()} likes · ${(p.comments || 0).toLocaleString()} comments`,
+      sentiment: 'NEUTRAL',
+      type: 'instagram'
+    });
   });
+
+  // ── News: group articles within 48hrs of each other ──
+  const sortedNews = (news || [])
+    .filter(a => a.publishedAt)
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+  const newsGroups = [];
+  sortedNews.forEach(article => {
+    const articleDate = new Date(article.publishedAt).getTime();
+    const existingGroup = newsGroups.find(g => {
+      const groupDate = new Date(g.articles[0].publishedAt).getTime();
+      return Math.abs(articleDate - groupDate) < 48 * 60 * 60 * 1000;
+    });
+    if (existingGroup) {
+      existingGroup.articles.push(article);
+    } else {
+      newsGroups.push({ articles: [article] });
+    }
+  });
+
+  newsGroups.forEach(group => {
+    const { articles } = group;
+    const lead = articles[0];
+    const leadDate = new Date(lead.publishedAt);
+
+    // Generate group title
+    let groupTitle;
+    if (articles.length === 1) {
+      groupTitle = lead.title;
+    } else {
+      // Extract common theme from titles
+      const titles = articles.map(a => a.title || '');
+      // Find shared keywords to build theme label
+      const allWords = titles.join(' ').toLowerCase();
+      if (allWords.includes('champions league') || allWords.includes('barcelona') || allWords.includes('ucl')) {
+        groupTitle = `Champions League coverage (${articles.length} articles)`;
+      } else if (allWords.includes('transfer') || allWords.includes('signing') || allWords.includes('departure')) {
+        groupTitle = `Transfer coverage (${articles.length} articles)`;
+      } else if (allWords.includes('injury') || allWords.includes('injured') || allWords.includes('fitness')) {
+        groupTitle = `Injury coverage (${articles.length} articles)`;
+      } else if (allWords.includes('contract') || allWords.includes('extension') || allWords.includes('renewal')) {
+        groupTitle = `Contract coverage (${articles.length} articles)`;
+      } else if (allWords.includes('england') || allWords.includes('international') || allWords.includes('world cup') || allWords.includes('euros')) {
+        groupTitle = `International coverage (${articles.length} articles)`;
+      } else if (allWords.includes('match') || allWords.includes('game') || allWords.includes('goal') || allWords.includes('win') || allWords.includes('defeat') || allWords.includes('draw')) {
+        groupTitle = `Match coverage (${articles.length} articles)`;
+      } else {
+        groupTitle = `${lead.title.substring(0, 60)}… (${articles.length} articles)`;
+      }
+    }
+
+    events.push({
+      date: leadDate.toISOString(),
+      platforms: 'NEWS MEDIA',
+      title: groupTitle,
+      articles: articles.map(a => ({
+        title: a.title,
+        source: a.source?.name || a.source || null,
+        url: a.url || null,
+        sentiment: a.sentiment?.sentiment || 'NEUTRAL'
+      })),
+      sentiment: lead.sentiment?.sentiment || 'NEUTRAL',
+      type: 'news_group'
+    });
+  });
+
+  // Sort all events by date descending
   events.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return events.slice(0, 15);
+  return events.slice(0, 20);
 }
 
 // ==================== GOOGLE ALERT QUERY GENERATOR ====================
