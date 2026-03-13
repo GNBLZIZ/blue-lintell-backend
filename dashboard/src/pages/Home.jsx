@@ -47,7 +47,7 @@ function formatFollowers(n) {
 }
 
 // Mini sparkline-style score bar
-function ScoreBar({ label, value, invert = false }) {
+function ScoreBar({ label, shortLabel, value, invert = false }) {
   const pct = Math.min(100, Math.max(0, value ?? 0));
   const isGood = invert ? pct < 25 : pct >= 65;
   const isBad  = invert ? pct > 40 : pct < 50;
@@ -55,9 +55,19 @@ function ScoreBar({ label, value, invert = false }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{label}</span>
-        <span style={{ fontSize: '1.1rem', fontWeight: 800, color, lineHeight: 1 }}>{value ?? '—'}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.25rem' }}>
+        <span style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, minWidth: 0, overflow: 'hidden' }}>
+          <span className="label-full">{label}</span>
+          <span className="label-short">{shortLabel || label}</span>
+        </span>
+        <span style={{ fontSize: '1.1rem', fontWeight: 800, color, lineHeight: 1, flexShrink: 0 }}>{value ?? '—'}</span>
+      </div>
+      <div style={{ height: 3, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width 1s ease' }} />
+      </div>
+    </div>
+  );
+}
       </div>
       <div style={{ height: 3, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width 1s ease' }} />
@@ -124,32 +134,43 @@ export default function Home() {
   return (
     <div style={{ minHeight: '100vh', background: `linear-gradient(160deg, #080c16 0%, #0d1424 50%, #0a0e1a 100%)`, fontFamily: 'system-ui, -apple-system, sans-serif', color: '#fff' }}>
       <style>{`
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulseRing {
-          0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
-          50%      { box-shadow: 0 0 0 6px rgba(220,38,38,0); }
-        }
-        @keyframes scanline {
-          0%   { transform: translateY(-100%); }
-          100% { transform: translateY(100vh); }
-        }
-        .athlete-card {
-          animation: fadeSlideIn 0.5s ease-out backwards;
-          transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s ease;
-          cursor: pointer;
-        }
-        .athlete-card:hover {
-          transform: translateY(-3px) scale(1.005);
-        }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulseRing { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); } 50% { box-shadow: 0 0 0 6px rgba(220,38,38,0); } }
+        .athlete-card { animation: fadeSlideIn 0.5s ease-out backwards; transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s ease; cursor: pointer; }
+        .athlete-card:hover { transform: translateY(-3px) scale(1.005); }
         .critical-pulse { animation: pulseRing 2s ease-in-out infinite; }
-        .stat-bar-fill { transition: width 1.2s cubic-bezier(0.4,0,0.2,1); }
+
+        /* Label switching: full on desktop, short on mobile */
+        .label-short { display: none; }
+        .label-full  { display: inline; }
+        @media (max-width: 600px) {
+          .label-short { display: inline; }
+          .label-full  { display: none; }
+        }
+
+        /* Card grid layout: stack on narrow screens */
+        .card-inner { display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: center; }
+        @media (max-width: 480px) {
+          .card-inner { grid-template-columns: 1fr; }
+          .score-ring { display: none; }
+          .score-bars-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+
+        /* Sub-bar: wrap on very small screens */
+        .fleet-subbar { display: flex; align-items: center; justify-content: flex-end; gap: 1.25rem; flex-wrap: wrap; }
+
+        /* Page padding */
+        .home-content { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+        @media (min-width: 640px) { .home-content { padding: 2.5rem 2rem; } }
+
+        /* Nav header padding on mobile */
+        @media (max-width: 500px) {
+          .fleet-subbar { justify-content: flex-start; padding: 0.6rem 1rem; }
+        }
       `}</style>
 
       {/* Fleet status sub-bar — sits below global nav */}
-      <div style={{ borderBottom: `1px solid ${COLORS.border}`, padding: '0.6rem 2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1.5rem', background: 'rgba(10,14,26,0.6)' }}>
+      <div className="fleet-subbar" style={{ borderBottom: `1px solid ${COLORS.border}`, padding: '0.6rem 2.5rem', background: 'rgba(10,14,26,0.6)' }}>
         {criticalCount > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: COLORS.danger, animation: 'pulseRing 2s infinite' }} />
@@ -171,7 +192,7 @@ export default function Home() {
       </div>
 
       {/* ── MAIN CONTENT ── */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2.5rem 2rem' }}>
+      <div className="home-content">
 
         {/* Section label */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem' }}>
@@ -216,7 +237,7 @@ export default function Home() {
                         : `0 4px 16px rgba(0,0,0,0.3)`,
                     }}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1.5rem', alignItems: 'center' }}>
+                    <div className="card-inner">
 
                       {/* LEFT: name + meta + score bars */}
                       <div style={{ minWidth: 0 }}>
@@ -253,17 +274,17 @@ export default function Home() {
                         )}
 
                         {/* Score bars */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
-                          <ScoreBar label="Sentiment"   value={d.sentiment_score} />
-                          <ScoreBar label="Credibility" value={d.credibility_score} />
-                          <ScoreBar label="Likeability" value={d.likeability_score} />
-                          <ScoreBar label="Relevance"   value={d.relevance_score} />
-                          <ScoreBar label="Controversy" value={d.controversy_score} invert />
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
+                          <ScoreBar label="Sentiment"   shortLabel="Sent."  value={d.sentiment_score} />
+                          <ScoreBar label="Credibility" shortLabel="Cred."  value={d.credibility_score} />
+                          <ScoreBar label="Likeability" shortLabel="Like."  value={d.likeability_score} />
+                          <ScoreBar label="Relevance"   shortLabel="Rel."   value={d.relevance_score} />
+                          <ScoreBar label="Controversy" shortLabel="Cont."  value={d.controversy_score} invert />
                         </div>
                       </div>
 
                       {/* RIGHT: Overall score circle + drill arrow */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                      <div className="score-ring" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
                         {/* Score ring */}
                         <div style={{ position: 'relative', width: 72, height: 72 }}>
                           <svg width="72" height="72" style={{ transform: 'rotate(-90deg)' }}>
