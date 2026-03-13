@@ -249,6 +249,63 @@ export default function AthleteDetail() {
     return null;
   };
 
+  const ThresholdBar = ({ label, value, isInverse, zones }) => {
+    const pct = Math.min(100, Math.max(0, value));
+    const barColor = isInverse
+      ? (value >= zones.critical ? COLORS.danger : value >= zones.warning ? COLORS.warning : COLORS.success)
+      : (value <= zones.critical ? COLORS.danger : value <= zones.warning ? COLORS.warning : COLORS.success);
+    return (
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{label}</span>
+          <span style={{ fontWeight: 800, fontSize: '1.4rem', color: barColor }}>{value}</span>
+        </div>
+        <div style={{ position: 'relative', height: 12, borderRadius: 6, background: '#1e293b', overflow: 'hidden' }}>
+          {isInverse ? (
+            <>
+              <div style={{ position: 'absolute', left: '0%', width: '20%', height: '100%', background: `${COLORS.success}30` }} />
+              <div style={{ position: 'absolute', left: '20%', width: '10%', height: '100%', background: `${COLORS.warning}30` }} />
+              <div style={{ position: 'absolute', left: '30%', width: '10%', height: '100%', background: `${COLORS.danger}30` }} />
+              <div style={{ position: 'absolute', left: '40%', width: '60%', height: '100%', background: `${COLORS.danger}20` }} />
+            </>
+          ) : (
+            <>
+              <div style={{ position: 'absolute', left: '0%', width: '50%', height: '100%', background: `${COLORS.danger}20` }} />
+              <div style={{ position: 'absolute', left: '50%', width: '10%', height: '100%', background: `${COLORS.danger}30` }} />
+              <div style={{ position: 'absolute', left: '60%', width: '10%', height: '100%', background: `${COLORS.warning}30` }} />
+              <div style={{ position: 'absolute', left: '70%', width: '30%', height: '100%', background: `${COLORS.success}30` }} />
+            </>
+          )}
+          <div style={{ position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: 3, background: barColor, borderRadius: 2, transform: 'translateX(-50%)', boxShadow: `0 0 6px ${barColor}` }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#475569', marginTop: '0.3rem' }}>
+          {isInverse ? <><span>0 — Safe</span><span>20 — Watch</span><span>30 — Warning</span><span>40+ — Critical</span></> : <><span>0</span><span>50 — Critical</span><span>60 — Warning</span><span>70+ — Healthy</span></>}
+        </div>
+      </div>
+    );
+  };
+
+  const Sparkline = ({ data, color, inverse }) => {
+    if (!data || data.length < 2) return <span style={{ fontSize: '0.75rem', color: '#475569' }}>Building…</span>;
+    const vals = data.map(d => d.value);
+    const min = Math.min(...vals); const max = Math.max(...vals);
+    const range = max - min || 1;
+    const w = 120; const h = 32;
+    const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(' ');
+    const trend = vals[vals.length - 1] - vals[0];
+    const trendColor = inverse ? (trend > 0 ? COLORS.danger : COLORS.success) : (trend > 0 ? COLORS.success : COLORS.danger);
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <svg width={w} height={h} style={{ overflow: 'visible' }}>
+          <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+        </svg>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: trendColor }}>
+          {trend > 0 ? '↗' : trend < 0 ? '↘' : '→'} {Math.abs(Math.round(trend))}
+        </span>
+      </div>
+    );
+  };
+
   // Twitter followers display
   const twitterFollowersFormatted = formatFollowers(dashboard.twitter_followers);
   // Instagram — FIX 6: only show if we actually have a value
@@ -690,68 +747,6 @@ export default function AthleteDetail() {
         const sentimentVal = dashboard.sentiment_score ?? 70;
         const controversyVal = dashboard.controversy_score ?? 0;
         const manualIncidents = dashboard.manual_controversy_incidents || [];
-
-        // Threshold bar helper
-        const ThresholdBar = ({ label, value, isInverse, zones }) => {
-          const pct = Math.min(100, Math.max(0, value));
-          const barColor = isInverse
-            ? (value >= zones.critical ? COLORS.danger : value >= zones.warning ? COLORS.warning : COLORS.success)
-            : (value <= zones.critical ? COLORS.danger : value <= zones.warning ? COLORS.warning : COLORS.success);
-          return (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{label}</span>
-                <span style={{ fontWeight: 800, fontSize: '1.4rem', color: barColor }}>{value}</span>
-              </div>
-              <div style={{ position: 'relative', height: 12, borderRadius: 6, background: '#1e293b', overflow: 'hidden' }}>
-                {/* Zone bands */}
-                {isInverse ? (
-                  <>
-                    <div style={{ position: 'absolute', left: '0%', width: '20%', height: '100%', background: `${COLORS.success}30` }} />
-                    <div style={{ position: 'absolute', left: '20%', width: '10%', height: '100%', background: `${COLORS.warning}30` }} />
-                    <div style={{ position: 'absolute', left: '30%', width: '10%', height: '100%', background: `${COLORS.danger}30` }} />
-                    <div style={{ position: 'absolute', left: '40%', width: '60%', height: '100%', background: `${COLORS.danger}20` }} />
-                  </>
-                ) : (
-                  <>
-                    <div style={{ position: 'absolute', left: '0%', width: '50%', height: '100%', background: `${COLORS.danger}20` }} />
-                    <div style={{ position: 'absolute', left: '50%', width: '10%', height: '100%', background: `${COLORS.danger}30` }} />
-                    <div style={{ position: 'absolute', left: '60%', width: '10%', height: '100%', background: `${COLORS.warning}30` }} />
-                    <div style={{ position: 'absolute', left: '70%', width: '30%', height: '100%', background: `${COLORS.success}30` }} />
-                  </>
-                )}
-                {/* Current value marker */}
-                <div style={{ position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: 3, background: barColor, borderRadius: 2, transform: 'translateX(-50%)', boxShadow: `0 0 6px ${barColor}` }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#475569', marginTop: '0.3rem' }}>
-                {isInverse ? <><span>0 — Safe</span><span>20 — Watch</span><span>30 — Warning</span><span>40+ — Critical</span></> : <><span>0</span><span>50 — Critical</span><span>60 — Warning</span><span>70+ — Healthy</span></>}
-              </div>
-            </div>
-          );
-        };
-
-        // Sparkline helper (inline SVG)
-        const Sparkline = ({ data, color, inverse }) => {
-          if (!data || data.length < 2) return <span style={{ fontSize: '0.75rem', color: '#475569' }}>Building…</span>;
-          const vals = data.map(d => d.value);
-          const min = Math.min(...vals); const max = Math.max(...vals);
-          const range = max - min || 1;
-          const w = 120; const h = 32;
-          const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(' ');
-          const trend = vals[vals.length - 1] - vals[0];
-          const trendColor = inverse ? (trend > 0 ? COLORS.danger : COLORS.success) : (trend > 0 ? COLORS.success : COLORS.danger);
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <svg width={w} height={h} style={{ overflow: 'visible' }}>
-                <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-              </svg>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: trendColor }}>
-                {trend > 0 ? '↗' : trend < 0 ? '↘' : '→'} {Math.abs(Math.round(trend))}
-              </span>
-            </div>
-          );
-        };
-
         const sentimentSparkData = (history || []).slice(-14).map(h => ({ value: h.sentiment_score ?? 0 })).filter(d => d.value > 0);
         const controversySparkData = (history || []).slice(-14).map(h => ({ value: h.controversy_score ?? 0 })).filter(d => d.value >= 0);
 
