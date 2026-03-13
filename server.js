@@ -90,7 +90,7 @@ const APIFY_TWEET_SCRAPER = 'apidojo~tweet-scraper';
 async function getTwitterProfile(username) {
   const handle = username.replace('@', '');
   const items = await apifyRunSync(APIFY_TWEET_SCRAPER, {
-    twitterHandles: [handle],
+    startUrls: [`https://twitter.com/${handle}/with_replies`],
     maxItems: 5,
     sort: 'Latest'
   }, { timeout: 90 });
