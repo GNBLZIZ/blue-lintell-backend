@@ -1300,7 +1300,7 @@ const seen = new Set();
       total_mentions: mentions.length,
       news_articles_count: allNews.length,
       avg_tweet_engagement: tweets.length ? Math.round(tweets.reduce((s, t) => s + t.likes + t.retweets, 0) / tweets.length) : 0,
-      perception_details,
+      perception_details,       manual_controversy_incidents: manualIncidents,
       recent_instagram_posts: instagramPosts.slice(0, 10),
       avg_engagement_rate_twitter: avgEngRateTwitter,
       avg_engagement_rate_instagram: avgEngRateInstagram,
