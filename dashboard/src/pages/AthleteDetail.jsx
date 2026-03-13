@@ -26,7 +26,7 @@ const SCORE_FIELDS = [
   'authenticity_score', 'controversy_score', 'relevance_score', 'influence_score'
 ];
 
-
+ 
 
 // Sponsor Readiness badge config
 const SPONSOR_READINESS_CONFIG = {
