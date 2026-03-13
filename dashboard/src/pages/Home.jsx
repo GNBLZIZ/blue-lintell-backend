@@ -68,13 +68,6 @@ function ScoreBar({ label, shortLabel, value, invert = false }) {
     </div>
   );
 }
-      </div>
-      <div style={{ height: 3, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2, transition: 'width 1s ease' }} />
-      </div>
-    </div>
-  );
-}
 
 // Concern flag chips
 function getFlags(d) {
