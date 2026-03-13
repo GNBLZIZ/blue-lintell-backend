@@ -215,11 +215,7 @@ export default function AthleteDetail() {
     const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
     return { metric, current, rolling7d, day7, day30, trend, change: trend !== 'stable' ? (change > 0 ? `+${change}` : `${change}`) : '0' };
   });
-const hasIncompleteHistory = !snap7 || !snap30 || 
-  scoreEvolution.some(row => 
-    (row.day7 === 100 && row.current !== 100) || 
-    (row.day30 === 100 && row.current !== 100)
-  );
+
   const radarData = scoreEvolution.map((s) => ({ metric: s.metric, current: s.current, rolling7d: s.rolling7d, day30: s.day30 }));
 
   const alerts = [];
@@ -413,9 +409,14 @@ const hasIncompleteHistory = !snap7 || !snap30 ||
 
       {/* Tabs */}
       <div className="tabs-row">
-        {['overview', 'temporal', 'alerts', 'intelligence'].map((tab) => (
-          <button key={tab} className="tab-btn" onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? COLORS.cardBg : 'transparent', border: 'none', borderBottom: activeTab === tab ? `3px solid ${COLORS.gold}` : '3px solid transparent', color: activeTab === tab ? COLORS.gold : '#94a3b8', padding: '0.75rem 1.25rem', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', letterSpacing: '0.5px', transition: 'all 0.3s ease' }}>
-            {tab}
+        {[
+          { key: 'overview', label: 'Overview' },
+          { key: 'temporal', label: 'Score History' },
+          { key: 'alerts', label: 'Alerts' },
+          { key: 'intelligence', label: 'Intelligence' },
+        ].map(({ key, label }) => (
+          <button key={key} className="tab-btn" onClick={() => setActiveTab(key)} style={{ background: activeTab === key ? COLORS.cardBg : 'transparent', border: 'none', borderBottom: activeTab === key ? `3px solid ${COLORS.gold}` : '3px solid transparent', color: activeTab === key ? COLORS.gold : '#94a3b8', padding: '0.75rem 1.25rem', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', letterSpacing: '0.5px', transition: 'all 0.3s ease' }}>
+            {label}
           </button>
         ))}
       </div>
@@ -535,7 +536,7 @@ const hasIncompleteHistory = !snap7 || !snap30 ||
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Platform performance</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                  <div style={{ fontWeight: 600 }}>Twitter · {dashboard.twitter_handle || '—'}</div>
+                  <div style={{ fontWeight: 600 }}>𝕏 · {dashboard.twitter_handle || '—'}</div>
                   <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
                     {twitterFollowersFormatted ? `${twitterFollowersFormatted} followers` : 'Follower data pending'}
                   </div>
@@ -557,7 +558,7 @@ const hasIncompleteHistory = !snap7 || !snap30 ||
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Aggregate engagement</h3>
               <div className="engagement-grid">
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Twitter engagement</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>X engagement</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{(dashboard.avg_engagement_rate_twitter ?? agg.avg_engagement_rate_twitter_pct) != null ? `${(dashboard.avg_engagement_rate_twitter ?? agg.avg_engagement_rate_twitter_pct)}%` : '—'}</div>
                 </div>
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
@@ -585,13 +586,58 @@ const hasIncompleteHistory = !snap7 || !snap30 ||
               ))}
             </div>
           )}
+
+          {/* Recent content — Overview only */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
+            {dashboard.recent_tweets?.length > 0 && (
+              <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Most recent posts on X</h3>
+                {dashboard.recent_tweets.slice(0, 5).map((t) => (
+                  <div key={t.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {t.likes ?? 0} · 🔁 {t.retweets ?? 0}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(t.text || '').substring(0, 120)}…</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(dashboard.recent_instagram_posts?.length > 0 || pd.recent_instagram_posts?.length > 0) && (
+              <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Most recent posts on Instagram</h3>
+                {instagramHandle && <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>@{instagramHandle}</div>}
+                {(dashboard.recent_instagram_posts || pd.recent_instagram_posts || []).slice(0, 5).map((p, i) => (
+                  <div key={p.id || i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      {p.timestamp ? new Date(p.timestamp).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {p.likes ?? 0} · 💬 {p.comments ?? 0}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(p.caption || 'Instagram post').substring(0, 120)}…</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {dashboard.recent_news?.length > 0 && (
+              <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Most recent news</h3>
+                {dashboard.recent_news.slice(0, 5).map((a, i) => (
+                  <div key={i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      {a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-GB') : ''}
+                      {a.source?.name || a.source ? <span style={{ marginLeft: '0.5rem', color: COLORS.gold, fontWeight: 600 }}>· {a.source?.name || a.source}</span> : ''}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 500, marginTop: '0.25rem' }}>{a.title}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
 
       {/* ── TEMPORAL TAB ── */}
       {activeTab === 'temporal' && (
         <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-          {hasIncompleteHistory && (             <div style={{ fontSize: '0.85rem', color: '#94a3b8', background: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.2)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.5rem' }}>               📈 Score history is building — trend comparisons will become more meaningful over the coming weeks as daily data accumulates.             </div>           )}           <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
+          <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
           <div className="temporal-scroll">
           <table className="temporal-table">
             <thead>
@@ -630,75 +676,212 @@ const hasIncompleteHistory = !snap7 || !snap30 ||
       )}
 
       {/* ── ALERTS TAB ── */}
-      {activeTab === 'alerts' && (
-        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-          {/* Status banner */}
-          <div className={alertLevel === 'critical' ? 'critical-glow' : ''} style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2rem', padding: '1.75rem', background: `${alertConfig.color}12`, border: `2px solid ${alertConfig.color}50`, borderRadius: 10 }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${alertConfig.color}20`, border: `2px solid ${alertConfig.color}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <AlertIcon size={24} color={alertConfig.color} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: '1.3rem', color: alertConfig.color, letterSpacing: '0.02em' }}>
-                {alertConfig.label === 'HEALTHY' ? 'Reputation is healthy' : alertConfig.label === 'WARNING' ? 'Reputation needs attention' : 'Reputation at risk — act now'}
-              </div>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.3rem' }}>
-                {alertConfig.label === 'HEALTHY'
-                  ? 'All key metrics are within normal range. No immediate action required.'
-                  : alertConfig.label === 'WARNING'
-                  ? 'One or more metrics have moved outside normal range. Review recommended.'
-                  : 'Critical metrics detected. Immediate strategic response advised.'}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Last checked</div>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.2rem' }}>{dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}</div>
-            </div>
-          </div>
+      {activeTab === 'alerts' && (() => {
+        const sentimentVal = dashboard.sentiment_score ?? 70;
+        const controversyVal = dashboard.controversy_score ?? 0;
+        const manualIncidents = dashboard.manual_controversy_incidents || [];
 
-          {/* Active alerts */}
-          <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active alerts</h3>
-          {alerts.map((alert, i) => {
-            const isOk = alert.severity === 'nominal';
-            const alertColour = alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success;
-            const severityLabel = alert.severity === 'critical' ? 'CRITICAL' : alert.severity === 'elevated' ? 'WARNING' : 'ALL CLEAR';
-            return (
-              <div key={i} style={{ padding: '1.25rem 1.5rem', marginBottom: '0.75rem', background: `${alertColour}10`, border: `1px solid ${alertColour}30`, borderLeft: `4px solid ${alertColour}`, borderRadius: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div>
-                    <span style={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: alertColour, background: `${alertColour}20`, padding: '2px 8px', borderRadius: 4 }}>{severityLabel}</span>
-                    <div style={{ marginTop: '0.5rem', fontSize: '0.95rem', fontWeight: 500, color: '#e2e8f0' }}>{alert.message}</div>
-                  </div>
-                  {!isOk && (
-                    <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#64748b' }}>
-                      <div>Threshold: <span style={{ color: '#94a3b8' }}>{alert.threshold}</span></div>
-                      <div>Current: <span style={{ color: alertColour, fontWeight: 700 }}>{alert.current}</span></div>
+        // Threshold bar helper
+        const ThresholdBar = ({ label, value, isInverse, zones }) => {
+          const pct = Math.min(100, Math.max(0, value));
+          const barColor = isInverse
+            ? (value >= zones.critical ? COLORS.danger : value >= zones.warning ? COLORS.warning : COLORS.success)
+            : (value <= zones.critical ? COLORS.danger : value <= zones.warning ? COLORS.warning : COLORS.success);
+          return (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{label}</span>
+                <span style={{ fontWeight: 800, fontSize: '1.4rem', color: barColor }}>{value}</span>
+              </div>
+              <div style={{ position: 'relative', height: 12, borderRadius: 6, background: '#1e293b', overflow: 'hidden' }}>
+                {/* Zone bands */}
+                {isInverse ? (
+                  <>
+                    <div style={{ position: 'absolute', left: '0%', width: '20%', height: '100%', background: `${COLORS.success}30` }} />
+                    <div style={{ position: 'absolute', left: '20%', width: '10%', height: '100%', background: `${COLORS.warning}30` }} />
+                    <div style={{ position: 'absolute', left: '30%', width: '10%', height: '100%', background: `${COLORS.danger}30` }} />
+                    <div style={{ position: 'absolute', left: '40%', width: '60%', height: '100%', background: `${COLORS.danger}20` }} />
+                  </>
+                ) : (
+                  <>
+                    <div style={{ position: 'absolute', left: '0%', width: '50%', height: '100%', background: `${COLORS.danger}20` }} />
+                    <div style={{ position: 'absolute', left: '50%', width: '10%', height: '100%', background: `${COLORS.danger}30` }} />
+                    <div style={{ position: 'absolute', left: '60%', width: '10%', height: '100%', background: `${COLORS.warning}30` }} />
+                    <div style={{ position: 'absolute', left: '70%', width: '30%', height: '100%', background: `${COLORS.success}30` }} />
+                  </>
+                )}
+                {/* Current value marker */}
+                <div style={{ position: 'absolute', left: `${pct}%`, top: 0, bottom: 0, width: 3, background: barColor, borderRadius: 2, transform: 'translateX(-50%)', boxShadow: `0 0 6px ${barColor}` }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#475569', marginTop: '0.3rem' }}>
+                {isInverse ? <><span>0 — Safe</span><span>20 — Watch</span><span>30 — Warning</span><span>40+ — Critical</span></> : <><span>0</span><span>50 — Critical</span><span>60 — Warning</span><span>70+ — Healthy</span></>}
+              </div>
+            </div>
+          );
+        };
+
+        // Sparkline helper (inline SVG)
+        const Sparkline = ({ data, color, inverse }) => {
+          if (!data || data.length < 2) return <span style={{ fontSize: '0.75rem', color: '#475569' }}>Building…</span>;
+          const vals = data.map(d => d.value);
+          const min = Math.min(...vals); const max = Math.max(...vals);
+          const range = max - min || 1;
+          const w = 120; const h = 32;
+          const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(' ');
+          const trend = vals[vals.length - 1] - vals[0];
+          const trendColor = inverse ? (trend > 0 ? COLORS.danger : COLORS.success) : (trend > 0 ? COLORS.success : COLORS.danger);
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <svg width={w} height={h} style={{ overflow: 'visible' }}>
+                <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+              </svg>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: trendColor }}>
+                {trend > 0 ? '↗' : trend < 0 ? '↘' : '→'} {Math.abs(Math.round(trend))}
+              </span>
+            </div>
+          );
+        };
+
+        const sentimentSparkData = (history || []).slice(-14).map(h => ({ value: h.sentiment_score ?? 0 })).filter(d => d.value > 0);
+        const controversySparkData = (history || []).slice(-14).map(h => ({ value: h.controversy_score ?? 0 })).filter(d => d.value >= 0);
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+            {/* Status banner */}
+            <div className={alertLevel === 'critical' ? 'critical-glow' : ''} style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.75rem', background: `${alertConfig.color}12`, border: `2px solid ${alertConfig.color}50`, borderRadius: 12 }}>
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: `${alertConfig.color}20`, border: `2px solid ${alertConfig.color}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertIcon size={26} color={alertConfig.color} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: '1.3rem', color: alertConfig.color }}>
+                  {alertConfig.label === 'HEALTHY' ? 'Reputation is healthy' : alertConfig.label === 'WARNING' ? 'Reputation needs attention' : 'Reputation at risk — act now'}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+                  {alertConfig.label === 'HEALTHY' ? 'All key metrics are within normal range. No immediate action required.' : alertConfig.label === 'WARNING' ? 'One or more metrics have moved outside normal range. Review recommended.' : 'Critical metrics detected. Immediate strategic response advised.'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
+                  Last checked: {dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* Two-col: threshold bars + sponsor risk */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+
+              {/* Threshold visualisation */}
+              <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Metric thresholds</h3>
+                <ThresholdBar label="Sentiment" value={sentimentVal} isInverse={false} zones={{ critical: 50, warning: 60 }} />
+                <ThresholdBar label="Controversy" value={controversyVal} isInverse={true} zones={{ warning: 30, critical: 40 }} />
+              </div>
+
+              {/* Sponsor risk card */}
+              <div style={{ background: COLORS.cardBg, border: `2px solid ${srConfig.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sponsor risk assessment</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '50%', background: srConfig.color, boxShadow: `0 0 10px ${srConfig.color}80`, flexShrink: 0 }} />
+                  <span style={{ fontWeight: 800, fontSize: '1.2rem', color: srConfig.color }}>{srConfig.label}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {[
+                    { label: 'Sentiment', value: sentimentVal, threshold: 60, isInverse: false },
+                    { label: 'Controversy', value: controversyVal, threshold: 30, isInverse: true },
+                    { label: 'Credibility', value: dashboard.credibility_score ?? 0, threshold: 60, isInverse: false },
+                  ].map(({ label, value, threshold, isInverse }) => {
+                    const ok = isInverse ? value < threshold : value >= threshold;
+                    return (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.9rem', background: ok ? `${COLORS.success}10` : `${COLORS.danger}10`, borderRadius: 6, border: `1px solid ${ok ? COLORS.success : COLORS.danger}30` }}>
+                        <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>{label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 700, color: ok ? COLORS.success : COLORS.danger }}>{value}</span>
+                          <span style={{ fontSize: '0.7rem', color: ok ? COLORS.success : COLORS.danger }}>{ok ? '✓' : '⚠'}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 30-day trajectory sparklines */}
+            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ margin: '0 0 1.25rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>30-day risk trajectory</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
+                <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>Sentiment trend</div>
+                  <Sparkline data={sentimentSparkData} color={COLORS.gold} inverse={false} />
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem' }}>Current: <strong style={{ color: '#e2e8f0' }}>{sentimentVal}</strong></div>
+                </div>
+                <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>Controversy trend</div>
+                  <Sparkline data={controversySparkData} color={COLORS.warning} inverse={true} />
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem' }}>Current: <strong style={{ color: '#e2e8f0' }}>{controversyVal}</strong></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Incident log */}
+            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ margin: '0 0 1.25rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Incident log</h3>
+              {manualIncidents.length === 0 ? (
+                <div style={{ fontSize: '0.9rem', color: '#475569', padding: '1rem', background: `${COLORS.success}08`, border: `1px solid ${COLORS.success}20`, borderRadius: 8 }}>
+                  ✓ No incidents recorded. Reputation is clean.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {manualIncidents.map((inc, i) => {
+                    const sevColor = inc.severity === 'high' ? COLORS.danger : inc.severity === 'medium' ? COLORS.warning : '#94a3b8';
+                    const sevLabel = inc.severity === 'high' ? 'HIGH' : inc.severity === 'medium' ? 'MEDIUM' : 'LOW';
+                    return (
+                      <div key={i} style={{ padding: '1rem 1.25rem', background: `${sevColor}08`, border: `1px solid ${sevColor}30`, borderLeft: `4px solid ${sevColor}`, borderRadius: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: sevColor, background: `${sevColor}20`, padding: '2px 8px', borderRadius: 4 }}>{sevLabel}</span>
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: '#e2e8f0', fontWeight: 500 }}>{inc.description || inc.incident || 'Incident recorded'}</div>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', flexShrink: 0 }}>
+                            {inc.date ? new Date(inc.date).toLocaleDateString('en-GB') : ''}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Active metric alerts */}
+            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ margin: '0 0 1.25rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active metric alerts</h3>
+              {alerts.map((alert, i) => {
+                const isOk = alert.severity === 'nominal';
+                const alertColour = alert.severity === 'critical' ? COLORS.danger : alert.severity === 'elevated' ? COLORS.warning : COLORS.success;
+                const severityLabel = alert.severity === 'critical' ? 'CRITICAL' : alert.severity === 'elevated' ? 'WARNING' : 'ALL CLEAR';
+                return (
+                  <div key={i} style={{ padding: '1.25rem 1.5rem', marginBottom: '0.75rem', background: `${alertColour}10`, border: `1px solid ${alertColour}30`, borderLeft: `4px solid ${alertColour}`, borderRadius: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div>
+                        <span style={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: alertColour, background: `${alertColour}20`, padding: '2px 8px', borderRadius: 4 }}>{severityLabel}</span>
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.95rem', fontWeight: 500, color: '#e2e8f0' }}>{alert.message}</div>
+                      </div>
+                      {!isOk && (
+                        <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#64748b' }}>
+                          <div>Threshold: <span style={{ color: '#94a3b8' }}>{alert.threshold}</span></div>
+                          <div>Current: <span style={{ color: alertColour, fontWeight: 700 }}>{alert.current}</span></div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Threshold reference */}
-          <h3 style={{ margin: '2rem 0 1rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>How alerts are triggered</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-            {[
-              { label: 'Sentiment', desc: 'Measures public positivity toward the athlete', critical: 'Below 50', warning: 'Below 60', healthy: 'Above 70' },
-              { label: 'Controversy', desc: 'Measures negative incidents and public backlash', critical: 'Above 40', warning: 'Above 30', healthy: 'Below 20' },
-            ].map(({ label, desc, critical, warning, healthy }) => (
-              <div key={label} style={{ padding: '1.25rem', background: `${COLORS.border}30`, border: `1px solid ${COLORS.border}`, borderRadius: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.25rem' }}>{label}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '1rem' }}>{desc}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: '#94a3b8' }}>🟢 Healthy</span><span style={{ color: COLORS.success, fontWeight: 600 }}>{healthy}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: '#94a3b8' }}>🟡 Warning</span><span style={{ color: COLORS.warning, fontWeight: 600 }}>{warning}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}><span style={{ color: '#94a3b8' }}>🔴 Critical</span><span style={{ color: COLORS.danger, fontWeight: 600 }}>{critical}</span></div>
-                </div>
-              </div>
-            ))}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── INTELLIGENCE TAB ── */}
       {activeTab === 'intelligence' && (
@@ -758,44 +941,6 @@ const hasIncompleteHistory = !snap7 || !snap30 ||
           </div>
         </>
       )}
-
-      {/* Recent content */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
-        {dashboard.recent_tweets?.length > 0 && (
-          <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent tweets</h3>
-            {dashboard.recent_tweets.slice(0, 5).map((t) => (
-              <div key={t.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>   {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {t.likes ?? 0} · 🔁 {t.retweets ?? 0} </div>
-                <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(t.text || '').substring(0, 120)}…</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {(dashboard.recent_instagram_posts?.length > 0 || pd.recent_instagram_posts?.length > 0) && (
-          <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent Instagram</h3>
-            {instagramHandle && <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>@{instagramHandle}</div>}
-            {(dashboard.recent_instagram_posts || pd.recent_instagram_posts || []).slice(0, 5).map((p, i) => (
-              <div key={p.id || i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>   {p.timestamp ? new Date(p.timestamp).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {p.likes ?? 0} · 💬 {p.comments ?? 0} </div>
-                <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(p.caption || 'Instagram post').substring(0, 120)}…</div>
-              </div>
-            ))}
-          </div>
-        )}
-        {dashboard.recent_news?.length > 0 && (
-          <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent news</h3>
-            {dashboard.recent_news.slice(0, 5).map((a, i) => (
-              <div key={i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : ''}</div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 500, marginTop: '0.25rem' }}>{a.title}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* ── DISCLAIMER — fixed bottom bar, no floating button ── */}
       {disclaimerVisible && (
