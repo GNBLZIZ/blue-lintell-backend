@@ -215,7 +215,11 @@ export default function AthleteDetail() {
     const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
     return { metric, current, rolling7d, day7, day30, trend, change: trend !== 'stable' ? (change > 0 ? `+${change}` : `${change}`) : '0' };
   });
-
+const hasIncompleteHistory = !snap7 || !snap30 || 
+  scoreEvolution.some(row => 
+    (row.day7 === 100 && row.current !== 100) || 
+    (row.day30 === 100 && row.current !== 100)
+  );
   const radarData = scoreEvolution.map((s) => ({ metric: s.metric, current: s.current, rolling7d: s.rolling7d, day30: s.day30 }));
 
   const alerts = [];
@@ -587,7 +591,7 @@ export default function AthleteDetail() {
       {/* ── TEMPORAL TAB ── */}
       {activeTab === 'temporal' && (
         <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-          <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
+          {hasIncompleteHistory && (             <div style={{ fontSize: '0.85rem', color: '#94a3b8', background: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.2)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.5rem' }}>               📈 Score history is building — trend comparisons will become more meaningful over the coming weeks as daily data accumulates.             </div>           )}           <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
           <div className="temporal-scroll">
           <table className="temporal-table">
             <thead>
