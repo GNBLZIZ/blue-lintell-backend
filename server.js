@@ -1187,8 +1187,13 @@ async function collectAthleteData(athleteId, athleteName, twitterHandle, instagr
     console.log('📰 News...');
     const news = await searchNews(athleteName, 7, country, sport);
     const tabloidNews = await searchNewsAPI(athleteName, 28);
-    const allNews = [...news];
-    let tabloidCount = 0;
+const seen = new Set();
+    const allNews = [...news].filter(a => {
+      const key = a.title ? a.title.toLowerCase().trim() : null;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });    let tabloidCount = 0;
     tabloidNews.forEach(article => {
       const exists = allNews.some(a => a.title && article.title && a.title.toLowerCase() === article.title.toLowerCase());
       if (!exists) { allNews.push(article); tabloidCount++; }
