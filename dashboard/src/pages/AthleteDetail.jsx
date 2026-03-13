@@ -236,6 +236,11 @@ export default function AthleteDetail() {
   };
   const alertConfig = statusConfig[alertLevel] || statusConfig.nominal;
   const AlertIcon = alertConfig.Icon;
+  const sentimentVal = dashboard.sentiment_score ?? 70;
+  const controversyVal = dashboard.controversy_score ?? 0;
+  const manualIncidents = dashboard.manual_controversy_incidents || [];
+  const sentimentSparkData = (history || []).slice(-14).map(h => ({ value: h.sentiment_score ?? 0 })).filter(d => d.value > 0);
+  const controversySparkData = (history || []).slice(-14).map(h => ({ value: h.controversy_score ?? 0 })).filter(d => d.value >= 0);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -743,16 +748,8 @@ export default function AthleteDetail() {
       )}
 
       {/* ── ALERTS TAB ── */}
-      {activeTab === 'alerts' && (() => {
-        const sentimentVal = dashboard.sentiment_score ?? 70;
-        const controversyVal = dashboard.controversy_score ?? 0;
-        const manualIncidents = dashboard.manual_controversy_incidents || [];
-        const sentimentSparkData = (history || []).slice(-14).map(h => ({ value: h.sentiment_score ?? 0 })).filter(d => d.value > 0);
-        const controversySparkData = (history || []).slice(-14).map(h => ({ value: h.controversy_score ?? 0 })).filter(d => d.value >= 0);
-
-        return (
+      {activeTab === 'alerts' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-
             {/* Status banner */}
             <div className={alertLevel === 'critical' ? 'critical-glow' : ''} style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.75rem', background: `${alertConfig.color}12`, border: `2px solid ${alertConfig.color}50`, borderRadius: 12 }}>
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: `${alertConfig.color}20`, border: `2px solid ${alertConfig.color}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -885,9 +882,7 @@ export default function AthleteDetail() {
             </div>
 
           </div>
-        );
-      })()}
-
+       )}
       {/* ── INTELLIGENCE TAB ── */}
       {activeTab === 'intelligence' && (
         <>
