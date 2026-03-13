@@ -577,15 +577,25 @@ export default function AthleteDetail() {
           {dashboard.timeline_events?.length > 0 && (
             <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Timeline</h3>
-              {dashboard.timeline_events.slice(0, 10).map((ev, i) => (
-                <div key={i} style={{ padding: '0.75rem 0', borderBottom: i < 9 ? `1px solid ${COLORS.border}` : 'none' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{ev.date} · {ev.platforms}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.25rem' }}>{ev.title}</div>
-                  {ev.description && <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.25rem' }}>{ev.description}</div>}
-                </div>
-              ))}
-            </div>
-          )}
+              {dashboard.timeline_events.slice(0, 15).map((ev, i) => (
+  <div key={i} style={{ padding: '0.75rem 0', borderBottom: i < 14 ? `1px solid ${COLORS.border}` : 'none' }}>
+    <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>
+      {ev.date ? new Date(ev.date).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }) : ''} · {ev.platforms}
+    </div>
+    <div style={{ fontWeight: 600 }}>{ev.title}</div>
+    {ev.description && <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.25rem' }}>{ev.description}</div>}
+    {ev.articles?.length > 0 && (
+      <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        {ev.articles.map((a, j) => (
+          <div key={j} style={{ fontSize: '0.8rem', color: '#64748b', paddingLeft: '0.75rem', borderLeft: `2px solid ${COLORS.border}` }}>
+            {a.title}
+            {a.source && <span style={{ color: COLORS.gold, marginLeft: '0.4rem' }}>· {a.source}</span>}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+))}
 
           {/* Recent content — Overview only */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
