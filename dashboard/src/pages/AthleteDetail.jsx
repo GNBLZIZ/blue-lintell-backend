@@ -762,7 +762,7 @@ export default function AthleteDetail() {
             <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Recent tweets</h3>
             {dashboard.recent_tweets.slice(0, 5).map((t) => (
               <div key={t.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>♥ {t.likes ?? 0} · 🔁 {t.retweets ?? 0}</div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>   {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {t.likes ?? 0} · 🔁 {t.retweets ?? 0} </div>
                 <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(t.text || '').substring(0, 120)}…</div>
               </div>
             ))}
@@ -774,7 +774,7 @@ export default function AthleteDetail() {
             {instagramHandle && <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>@{instagramHandle}</div>}
             {(dashboard.recent_instagram_posts || pd.recent_instagram_posts || []).slice(0, 5).map((p, i) => (
               <div key={p.id || i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>♥ {p.likes ?? 0} · 💬 {p.comments ?? 0}</div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>   {p.timestamp ? new Date(p.timestamp).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {p.likes ?? 0} · 💬 {p.comments ?? 0} </div>
                 <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>{(p.caption || 'Instagram post').substring(0, 120)}…</div>
               </div>
             ))}
