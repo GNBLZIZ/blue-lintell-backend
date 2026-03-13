@@ -73,7 +73,7 @@ export default function AthleteDetail() {
     if (!athleteId) return;
     api.athleteHistory(athleteId, historyDays).then(setHistory).catch(() => setHistory([]));
   };
-
+ 
   useEffect(() => {
     setLoading(true);
     loadDashboard();
