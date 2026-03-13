@@ -257,7 +257,7 @@ export default function AthleteDetail() {
   const showInstagram = instagramHandle || instagramFollowersFormatted;
 
   return (
-    <div style={{ color: '#fff', padding: '1.5rem', paddingBottom: '2rem' }}>
+    <div className="page-wrap" style={{ color: '#fff' }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideInStagger { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
@@ -279,19 +279,60 @@ export default function AthleteDetail() {
         .gold-shimmer { background: linear-gradient(90deg, transparent, rgba(201,169,97,0.3), transparent); background-size: 1000px 100%; animation: shimmer 3s infinite; }
         .critical-glow { animation: borderGlow 2s ease-in-out infinite; }
         .composite-hero { animation: compositeEntrance 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.3s backwards; }
-        .score-grid { display: grid; gap: 1.5rem; margin-bottom: 2rem; }
-        @media (min-width: 1024px) { .score-grid { grid-template-columns: repeat(4, 1fr); } }
-        @media (min-width: 640px) and (max-width: 1023px) { .score-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (max-width: 639px) { .score-grid { grid-template-columns: 1fr; } }
         .progress-ring { transform: rotate(-90deg); }
         .progress-ring-circle { transition: stroke-dashoffset 1s ease; }
         .sr-badge { transition: all 0.3s ease; }
         .sr-badge:hover { transform: translateY(-1px); filter: brightness(1.15); }
+
+        /* ── SCORE GRID ── */
+        .score-grid { display: grid; gap: 1rem; margin-bottom: 2rem; grid-template-columns: repeat(2, 1fr); }
+        @media (min-width: 768px) { .score-grid { grid-template-columns: repeat(3, 1fr); gap: 1.25rem; } }
+        @media (min-width: 1100px) { .score-grid { grid-template-columns: repeat(4, 1fr); gap: 1.5rem; } }
+
+        /* ── SCORE CARDS: compact on mobile ── */
+        @media (max-width: 639px) {
+          .score-card { padding: 1.25rem !important; }
+          .score-number { font-size: 2.5rem !important; }
+        }
+
+        /* ── HEADER STACK ── */
+        .header-right { display: flex; align-items: center; gap: 1.25rem; flex-shrink: 0; }
+        @media (max-width: 700px) {
+          .header-inner { flex-direction: column !important; align-items: stretch !important; }
+          .header-right { flex-direction: row; justify-content: flex-start; flex-wrap: wrap; margin-top: 0.75rem; }
+          .header-right .composite-hero { min-width: 80px !important; }
+          .refresh-btn { width: 100% !important; margin-top: 0.5rem; }
+        }
+
+        /* ── CHARTS: stack on mobile ── */
+        .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; gap: 1rem; } }
+
+        /* ── PLATFORM ROW: stack on mobile ── */
+        .platform-row { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin-bottom: 2rem; }
+        @media (max-width: 700px) { .platform-row { grid-template-columns: 1fr; gap: 1rem; } }
+
+        /* ── ENGAGEMENT GRID: 2-col on mobile ── */
+        .engagement-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        @media (max-width: 500px) { .engagement-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        /* ── TEMPORAL TABLE: horizontal scroll on mobile ── */
+        .temporal-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .temporal-table { min-width: 560px; width: 100%; border-collapse: collapse; }
+
+        /* ── TABS: scrollable on mobile ── */
+        .tabs-row { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 2px solid #1e293b; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .tabs-row::-webkit-scrollbar { display: none; }
+        .tab-btn { white-space: nowrap; flex-shrink: 0; }
+
+        /* ── PAGE PADDING ── */
+        .page-wrap { padding: 1rem; padding-bottom: 4rem; }
+        @media (min-width: 640px) { .page-wrap { padding: 1.5rem; padding-bottom: 2rem; } }
       `}</style>
 
       {/* ── HEADER ── */}
       <div className="fade-in" style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem 2rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="header-inner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
 
           {/* Left: name + badges + meta */}
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -333,7 +374,7 @@ export default function AthleteDetail() {
           </div>
 
           {/* Right: Composite score + Sponsor Readiness + Refresh */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexShrink: 0 }}>
+          <div className="header-right">
 
             {/* FIX 5: Composite score hero */}
             {compositeScore != null && (
@@ -367,9 +408,9 @@ export default function AthleteDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="fade-in" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: `2px solid ${COLORS.border}` }}>
+      <div className="tabs-row">
         {['overview', 'temporal', 'alerts', 'intelligence'].map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? COLORS.cardBg : 'transparent', border: 'none', borderBottom: activeTab === tab ? `3px solid ${COLORS.gold}` : '3px solid transparent', color: activeTab === tab ? COLORS.gold : '#94a3b8', padding: '0.75rem 1.25rem', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', letterSpacing: '0.5px', transition: 'all 0.3s ease' }}>
+          <button key={tab} className="tab-btn" onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? COLORS.cardBg : 'transparent', border: 'none', borderBottom: activeTab === tab ? `3px solid ${COLORS.gold}` : '3px solid transparent', color: activeTab === tab ? COLORS.gold : '#94a3b8', padding: '0.75rem 1.25rem', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', letterSpacing: '0.5px', transition: 'all 0.3s ease' }}>
             {tab}
           </button>
         ))}
@@ -442,7 +483,7 @@ export default function AthleteDetail() {
           </div>
 
           {/* Charts row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+          <div className="charts-row">
             <div className="fade-in" style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Sentiment evolution</h3>
               {sentimentHistory.length > 0 ? (
@@ -485,7 +526,7 @@ export default function AthleteDetail() {
           </div>
 
           {/* Platform + Engagement */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', marginBottom: '2rem' }}>
+          <div className="platform-row">
             <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Platform performance</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -510,7 +551,7 @@ export default function AthleteDetail() {
 
             <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Aggregate engagement</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+              <div className="engagement-grid">
                 <div style={{ padding: '1rem', background: `${COLORS.border}20`, borderRadius: 8 }}>
                   <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Twitter engagement</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 700, color: COLORS.gold }}>{(dashboard.avg_engagement_rate_twitter ?? agg.avg_engagement_rate_twitter_pct) != null ? `${(dashboard.avg_engagement_rate_twitter ?? agg.avg_engagement_rate_twitter_pct)}%` : '—'}</div>
@@ -545,9 +586,10 @@ export default function AthleteDetail() {
 
       {/* ── TEMPORAL TAB ── */}
       {activeTab === 'temporal' && (
-        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', overflowX: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
+        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
           <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="temporal-scroll">
+          <table className="temporal-table">
             <thead>
               <tr style={{ borderBottom: `3px solid ${COLORS.gold}` }}>
                 <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
@@ -579,6 +621,7 @@ export default function AthleteDetail() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
