@@ -20,4 +20,5 @@ export const api = {
   athlete: (id) => request(`/api/athlete/${id}`),
   athleteHistory: (id, days) => request(`/api/athlete/${id}/history/${days}`),
   refresh: (body) => request('/api/athlete/refresh', { method: 'POST', body: JSON.stringify(body) }),
+  controversies: (id) => request(`/api/athlete/${id}/controversy`),
 };
