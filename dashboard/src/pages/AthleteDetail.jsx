@@ -234,6 +234,9 @@ export default function AthleteDetail() {
   };
   const alertConfig = statusConfig[alertLevel] || statusConfig.nominal;
   const AlertIcon = alertConfig.Icon;
+  const manualIncidents = (dashboard.manual_controversy_incidents || []).length > 0 
+    ? dashboard.manual_controversy_incidents 
+    : incidents;
   const sentimentVal = dashboard.sentiment_score ?? 70;
   const controversyVal = dashboard.controversy_score ?? 0;
   const sentimentSparkData = (history || []).slice(-14).map(h => ({ value: h.sentiment_score ?? 0 })).filter(d => d.value > 0);
@@ -821,7 +824,7 @@ export default function AthleteDetail() {
 
           <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <h3 style={{ margin: '0 0 1.25rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Incident log</h3>
-            {incidents.length === 0 ? (
+            {manualIncidents.length === 0 ? (
               <div style={{ fontSize: '0.9rem', color: '#475569', padding: '1rem', background: `${COLORS.success}08`, border: `1px solid ${COLORS.success}20`, borderRadius: 8 }}>
                 ✓ No incidents recorded. Reputation is clean.
               </div>
