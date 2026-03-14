@@ -664,7 +664,7 @@ export default function AthleteDetail() {
             </div>
           )}
 
-          {/* Recent content — Overview only */}
+          {/* Recent content — Overview only */}         
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
             {dashboard.recent_tweets?.length > 0 && (
               <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
