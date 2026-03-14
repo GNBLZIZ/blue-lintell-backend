@@ -838,7 +838,7 @@ export default function AthleteDetail() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <div style={{ flex: 1 }}>
                           <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: sevColor, background: `${sevColor}20`, padding: '2px 8px', borderRadius: 4 }}>{sevLabel}</span>
-                          <div style={{ fontSize: '0.9rem', color: '#e2e8f0', fontWeight: 500, marginTop: '0.4rem' }}>{inc.description || inc.incident || 'Incident recorded'}</div>
+                          <div style={{ fontSize: '0.9rem', color: '#e2e8f0', fontWeight: 500, marginTop: '0.4rem' }}>{inc.title || inc.description || inc.incident || 'Incident recorded'}</div>
                         </div>
                         <div style={{ fontSize: '0.75rem', color: '#64748b', flexShrink: 0 }}>
                           {inc.date ? new Date(inc.date).toLocaleDateString('en-GB') : ''}
