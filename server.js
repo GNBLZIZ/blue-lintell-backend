@@ -1065,7 +1065,7 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
     let summary = '', breakdown = [], derivedScore = null;
 
     if (ANTHROPIC_API_KEY) {
-      const dbField = `${metricNames[i].toLowerCase()}_score`;       const rollingAvg = yesterdayScores ? (() => {         // calc 7-day avg not available here, so use yesterday as proxy trend indicator         return yesterdayScores[dbField] ?? null;       })() : null;       const divergence = (rollingAvg != null) ? scoreToPass - rollingAvg : null;       const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile, rollingAvg, divergence);
+      const dbField = `${metricNames[i].toLowerCase()}_score`;       const rollingAvg = yesterdayScores ? (yesterdayScores[dbField] ?? null) : null;       const divergence = (rollingAvg != null) ? scoreToPass - rollingAvg : null;       const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile, rollingAvg, divergence);
       summary = result.summary || '';
       breakdown = Array.isArray(result.breakdown) ? result.breakdown : [result.breakdown].filter(Boolean);
       derivedScore = result.derivedScore;
