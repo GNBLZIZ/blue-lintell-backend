@@ -1562,7 +1562,7 @@ app.get('/api/athlete/:id/rolling/:days', async (req, res) => {
       const change = calcChange(dbField);
       scores[f] = {
         current: today[dbField],
-        rolling_avg: f === 'credibility' ? today[dbField] : calcAvg(dbField),
+        rolling_avg: calcAvg(dbField),
         change_from_yesterday: change,
         trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
       };
