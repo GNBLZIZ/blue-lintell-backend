@@ -794,7 +794,17 @@ CALIBRATION: Most professional athletes score 60-72. High authenticity (75+) req
 IMPORTANT CONTEXT: This score uses category classification. Sporting events (match results, Champions League exits) carry only 15% weight. Personal conduct incidents carry full weight. Always clarify in your response whether controversy is driven by conduct or sporting events — this matters enormously for commercial partners.
 Focus on: specific incidents, disciplinary issues, brand-damaging personal life issues, pattern of behaviour vs isolated incidents.`,
 
-    'Relevance': `Measures CULTURAL IMPACT & VISIBILITY — how much the athlete is part of the conversation. Focus on: trending status, mainstream media attention, cultural crossover, social conversation volume. Distinguish: Relevance is about VISIBILITY, not quality or sentiment.`
+    'Relevance': `Measures CULTURAL IMPACT & VISIBILITY — how much the athlete is part of the conversation. Focus on: trending status, mainstream media attention, cultural crossover, social conversation volume. Distinguish: Relevance is about VISIBILITY, not quality or sentiment.`,
+
+    'Influence': `Measures REAL-WORLD COMMERCIAL POWER — the athlete's ability to move audiences, shift opinions, and deliver value to commercial partners. This is a composite of three components:
+
+REACH (40%): Total follower base across Twitter/X and Instagram. ${careerContext}
+ENGAGEMENT QUALITY (30%): Average engagement rate across platforms — this distinguishes genuine influence from passive following. A 3%+ rate signals an actively engaged audience.
+CAREER AUTHORITY (30%): Built from international caps, tournament appearances, club pedigree, and years at elite level.
+
+CALIBRATION: 80+ = genuinely powerful commercial asset. 65-79 = solid platform with room to grow. Below 65 = limited reach or disengaged audience.
+
+In your explanation: Be specific about what's driving the score. Name the actual follower numbers, engagement rate, and career credentials. Explain what this means for a commercial partner — would this athlete move product? Why or why not? What would need to change to push this score higher? This should read like a commercial intelligence briefing, not a formula description.`
   };
 
   const guidance = scoreGuidance[metricName] || 'Analyse this score based on the available data.';
