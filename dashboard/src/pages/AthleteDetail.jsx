@@ -830,7 +830,7 @@ export default function AthleteDetail() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {incidents.map((inc, i) => {
+                {manualIncidents.map((inc, i) => {
                   const sevColor = inc.severity === 'high' ? COLORS.danger : inc.severity === 'medium' ? COLORS.warning : '#94a3b8';
                   const sevLabel = inc.severity === 'high' ? 'HIGH' : inc.severity === 'medium' ? 'MEDIUM' : 'LOW';
                   return (
