@@ -636,8 +636,11 @@ export default function AthleteDetail() {
             </div>
           </div>
 
-          {/* Timeline */}
-         {dashboard.timeline_events.slice(0, 15).map((ev, i, arr) => (
+         {/* Timeline */}
+          {dashboard.timeline_events?.length > 0 && (
+            <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Timeline</h3>
+              {dashboard.timeline_events.slice(0, 15).map((ev, i, arr) => (
                 <div key={i} style={{ padding: '0.75rem 0', borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : 'none' }}>
                   <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>
                     {ev.date ? new Date(ev.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ev.platforms}
@@ -779,7 +782,7 @@ export default function AthleteDetail() {
               <ThresholdBar label="Controversy" value={controversyVal} isInverse={true} zones={{ warning: 30, critical: 40 }} />
             </div>
             <div style={{ background: COLORS.cardBg, border: `2px solid ${srConfig.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>COMMERCIALLY RISK assessment</h3>
+              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Commercial risk assessment</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
                 <div style={{ width: 16, height: 16, borderRadius: '50%', background: srConfig.color, boxShadow: `0 0 10px ${srConfig.color}80`, flexShrink: 0 }} />
                 <span style={{ fontWeight: 800, fontSize: '1.2rem', color: srConfig.color }}>{srConfig.label}</span>
