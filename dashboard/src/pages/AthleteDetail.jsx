@@ -30,9 +30,9 @@ const SCORE_FIELDS = [
 
 // Sponsor Readiness badge config
 const SPONSOR_READINESS_CONFIG = {
-  GREEN:  { color: '#10b981', bg: '#10b98118', border: '#10b98140', label: 'SPONSOR READY' },
+  GREEN:  { color: '#10b981', bg: '#10b98118', border: '#10b98140', label: 'COMMERCIALLY STRONG' },
   AMBER:  { color: '#f59e0b', bg: '#f59e0b18', border: '#f59e0b40', label: 'REVIEW ADVISED' },
-  RED:    { color: '#dc2626', bg: '#dc262618', border: '#dc262640', label: 'SPONSOR RISK' },
+  RED:    { color: '#dc2626', bg: '#dc262618', border: '#dc262640', label: 'COMMERCIAL RISK' },
 };
 
 export default function AthleteDetail() {
@@ -452,7 +452,7 @@ export default function AthleteDetail() {
 
             {/* FIX 5: Sponsor Readiness traffic light */}
             <div className="sr-badge" style={{ textAlign: 'center', background: srConfig.bg, border: `2px solid ${srConfig.border}`, borderRadius: 12, padding: '0.75rem 1.25rem', minWidth: 120 }}>
-              <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.35rem' }}>Sponsor Status</div>
+              <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.35rem' }}>Commercial Status</div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                 {/* Traffic light dot */}
                 <div style={{ width: 14, height: 14, borderRadius: '50%', background: srConfig.color, boxShadow: `0 0 8px ${srConfig.color}80`, flexShrink: 0 }} />
@@ -760,7 +760,7 @@ export default function AthleteDetail() {
             </div>
           </div>
 
-          {/* Two-col: threshold bars + sponsor risk */}
+          {/* Two-col: threshold bars + COMMERCIAL RISK */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
             <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Metric thresholds</h3>
@@ -768,7 +768,7 @@ export default function AthleteDetail() {
               <ThresholdBar label="Controversy" value={controversyVal} isInverse={true} zones={{ warning: 30, critical: 40 }} />
             </div>
             <div style={{ background: COLORS.cardBg, border: `2px solid ${srConfig.border}`, borderRadius: 12, padding: '1.75rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sponsor risk assessment</h3>
+              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: 700, color: COLORS.gold, textTransform: 'uppercase', letterSpacing: '0.05em' }}>COMMERCIALLY RISK assessment</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
                 <div style={{ width: 16, height: 16, borderRadius: '50%', background: srConfig.color, boxShadow: `0 0 10px ${srConfig.color}80`, flexShrink: 0 }} />
                 <span style={{ fontWeight: 800, fontSize: '1.2rem', color: srConfig.color }}>{srConfig.label}</span>
