@@ -24,9 +24,9 @@ const STATUS = {
 function getSponsorStatus(d) {
   const controversy = d.controversy_score ?? 0;
   const sentiment = d.sentiment_score ?? 70;
-  if (controversy > 40 || sentiment < 50) return { color: COLORS.danger,  label: 'SPONSOR RISK',    bg: '#dc262618' };
+  if (controversy > 40 || sentiment < 50) return { color: COLORS.danger,  label: 'COMMERCIAL RISK',    bg: '#dc262618' };
   if (controversy > 25 || sentiment < 60) return { color: COLORS.warning, label: 'REVIEW ADVISED',  bg: '#f59e0b18' };
-  return { color: COLORS.success, label: 'SPONSOR READY', bg: '#10b98118' };
+  return { color: COLORS.success, label: 'COMMERCIALLY STRONG', bg: '#10b98118' };
 }
 
 // Derive overall score from available fields
