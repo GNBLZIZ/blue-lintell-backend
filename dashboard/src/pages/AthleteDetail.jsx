@@ -176,10 +176,11 @@ export default function AthleteDetail() {
     let rollingAvg = currentValue;
     let changeFromYesterday = null;
     let trend = 'stable';
-    if (rollingData?.scores?.[field]) {
-      rollingAvg = rollingData.scores[field].rolling_avg ?? currentValue;
-      changeFromYesterday = rollingData.scores[field].change_from_yesterday ?? null;
-      trend = rollingData.scores[field].trend ?? 'stable';
+    const scoreKey = field.replace('_score', '');
+    if (rollingData?.scores?.[scoreKey]) {
+      rollingAvg = rollingData.scores[scoreKey].rolling_avg ?? currentValue;
+      changeFromYesterday = rollingData.scores[scoreKey].change_from_yesterday ?? null;
+      trend = rollingData.scores[scoreKey].trend ?? 'stable';
     }
     const details = pd[label];
     return { label, value: rollingAvg, currentValue, changeFromYesterday, trend, key: field, details };
