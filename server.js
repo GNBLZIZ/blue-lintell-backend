@@ -755,7 +755,7 @@ function calculateAlertLevel(data) {
 // These prompts are your existing ones — they already produce excellent output.
 // Leadership and Authenticity now get a richer prompt that uses career context.
 
-async function generateScoreExplanation(metricName, score, context, athleteName, careerProfile) {
+async function generateScoreExplanation(metricName, score, context, athleteName, careerProfile, rollingAvg = null, divergence = null) {
   if (!ANTHROPIC_API_KEY) return { summary: '', breakdown: [] };
 
   const newsHeadlines = (context.recentNewsHeadlines || []).slice(0, 5).map((a, i) =>
@@ -824,7 +824,7 @@ In your explanation: Be specific about what's driving the score. Name the actual
 
 ATHLETE: ${athleteName || 'Professional Athlete'}
 METRIC: ${metricName}
-SCORE: ${score}/100
+SCORE (today's raw): ${score}/100 ${rollingAvg != null ? `7-DAY ROLLING AVERAGE: ${rollingAvg}/100` : ''} ${divergence != null && Math.abs(divergence) >= 10 ? ` ⚠️ SIGNIFICANT DIVERGENCE DETECTED: Today's score is ${divergence > 0 ? '+' : ''}${divergence} points ${divergence > 0 ? 'above' : 'below'} the 7-day average. This is a meaningful recent shift. Lead your commentary by acknowledging this divergence — explain what it likely signals and whether it represents an emerging trend or a one-day spike. The 7-day average is the primary stable metric; today's reading is the signal to watch.` : ''} ${divergence != null && Math.abs(divergence) < 10 ? `Note: Today's score is close to the 7-day average (${divergence > 0 ? '+' : ''}${divergence} points), suggesting stability. Anchor your commentary to the rolling average as the reliable trend figure.` : ''}
 
 ${guidance}${brandRiskInfo}${scoreInstructions}
 
@@ -1037,8 +1037,22 @@ function getTemplateExplanation(metricName, score, context) {
 // Enhanced: Leadership and Authenticity now get DERIVED_SCORE from Claude,
 // which then feeds back into the final score saved to the dashboard.
 
-async function buildPerceptionDetails(scores, athleteData, context, athleteName, careerProfile) {
+async function buildPerceptionDetails(scores, athleteData, context, athleteName, careerProfile, athleteId = null) {
   const base = { data_quality: context.data_quality || {} };
+
+  // Fetch yesterday's scores for divergence calculation
+  let yesterdayScores = null;
+  if (athleteId) {
+    const { data: hist } = await supabase
+      .from('athlete_score_history')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('snapshot_date', { ascending: false })
+      .limit(8);
+    if (hist && hist.length >= 2) {
+      yesterdayScores = hist[1]; // index 0 = today's snapshot, 1 = yesterday
+    }
+  }
   const metricNames = ['Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance'];
   const scoreKeys = ['sentimentScore', 'credibilityScore', 'likeabilityScore', 'leadershipScore', 'authenticityScore', 'controversyScore', 'relevanceScore'];
 
@@ -1051,7 +1065,7 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
     let summary = '', breakdown = [], derivedScore = null;
 
     if (ANTHROPIC_API_KEY) {
-      const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile);
+      const dbField = `${metricNames[i].toLowerCase()}_score`;       const rollingAvg = yesterdayScores ? (() => {         // calc 7-day avg not available here, so use yesterday as proxy trend indicator         return yesterdayScores[dbField] ?? null;       })() : null;       const divergence = (rollingAvg != null) ? scoreToPass - rollingAvg : null;       const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile, rollingAvg, divergence);
       summary = result.summary || '';
       breakdown = Array.isArray(result.breakdown) ? result.breakdown : [result.breakdown].filter(Boolean);
       derivedScore = result.derivedScore;
@@ -1355,7 +1369,7 @@ const seen = new Set();
     };
 
     console.log('📝 Generating score explanations (Claude)...');
-    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext, athleteName, careerProfile);
+    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext, athleteName, careerProfile, athleteData.id);
 
     // Engagement metrics
     const twitterFollowerCount = twitterProfile?.followers ?? 0;
@@ -1570,11 +1584,14 @@ app.get('/api/athlete/:id/rolling/:days', async (req, res) => {
     scoreFields.forEach(f => {
       const dbField = `${f}_score`;
       const change = calcChange(dbField);
+      const avg = calcAvg(dbField);
+      const divergence = (today[dbField] != null && avg != null) ? today[dbField] - avg : null;
       scores[f] = {
         current: today[dbField],
-        rolling_avg: calcAvg(dbField),
+        rolling_avg: avg,
         change_from_yesterday: change,
-        trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
+        trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable',
+        divergence_from_average: divergence
       };
     });
     res.json({ athlete_id: id, period_days: numDays, period_start: rollingData[rollingData.length - 1]?.snapshot_date, period_end: rollingData[0]?.snapshot_date, scores });
