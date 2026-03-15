@@ -210,7 +210,10 @@ export default function AthleteDetail() {
     let rolling7d = current;
     if (rollingData?.scores?.[scoreKey]) rolling7d = rollingData.scores[scoreKey].rolling_avg ?? current;
     const change = current - (day30 || current);
-    const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'stable';
+    const isInverse = metric === 'Controversy';
+    const trend = change === 0 ? 'stable' : isInverse
+      ? (change > 0 ? 'down' : 'up')
+      : (change > 0 ? 'up' : 'down');
     return { metric, current, rolling7d, day7, day30, trend, change: trend !== 'stable' ? (change > 0 ? `+${change}` : `${change}`) : '0' };
   });
 
