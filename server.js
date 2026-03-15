@@ -404,11 +404,14 @@ function suggestControversyCategory(text) {
 function getTimeDecayMultiplier(incidentDate, category) {
   const daysSince = Math.floor((Date.now() - new Date(incidentDate).getTime()) / 86400000);
   if (category === 'CONDUCT') {
-    if (daysSince <= 30)  return 1.0;
-    if (daysSince <= 90)  return 0.75;
-    if (daysSince <= 180) return 0.50;
-    if (daysSince <= 365) return 0.25;
-    return 0.10;
+    if (daysSince <= 7)   return 1.0;   // Full impact first week
+    if (daysSince <= 14)  return 0.75;  // 75% — still live in media cycle
+    if (daysSince <= 21)  return 0.50;  // 50% — fading
+    if (daysSince <= 30)  return 0.30;  // 30% — old news
+    if (daysSince <= 90)  return 0.15;  // 15% — historical footnote
+    if (daysSince <= 180) return 0.08;
+    if (daysSince <= 365) return 0.03;
+    return 0.01;
   }
   if (category === 'SPORTING' || category === 'PROFESSIONAL') {
     if (daysSince <= 14)  return 1.0;
@@ -615,8 +618,10 @@ async function calculateReputationScores(athleteData, athleteId, careerProfile) 
   const newsCredibility = totalAuthorityWeight > 0
     ? Math.max(0, Math.min(70, Math.round(((credibilitySignal / totalAuthorityWeight) + 1) * 35)))
     : 35;
-  const credibilityScore = Math.min(85, newsCredibility + verificationBonus);
+  const rawCredibility = newsCredibility + verificationBonus;
+  const credibilityScore = Math.min(85, Math.max(0, rawCredibility));
   // Cap at 85 — nobody has perfect press coverage
+  console.log(`📊 Credibility: newsCredibility=${newsCredibility} verificationBonus=${verificationBonus} raw=${rawCredibility} final=${credibilityScore}`);
 
   // --- LIKEABILITY ---
   // Old: raw engagement / 100, floored at 60 (meaningless)
@@ -1060,13 +1065,14 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
     // For Leadership and Authenticity, pass a placeholder score to Claude
     // Claude will return a DERIVED_SCORE we use as the actual score
     const isClaudeDerived = ['Leadership', 'Authenticity'].includes(metricNames[i]);
-    const scoreToPass = isClaudeDerived ? 70 : (scores[scoreKeys[i]] ?? 0); // 70 as starting hint
-
+    const rawScore = scores[scoreKeys[i]] ?? 0;
     let summary = '', breakdown = [], derivedScore = null;
-
     if (ANTHROPIC_API_KEY) {
-      const dbField = `${metricNames[i].toLowerCase()}_score`;       const rollingAvg = yesterdayScores ? (yesterdayScores[dbField] ?? null) : null;       const divergence = (rollingAvg != null) ? scoreToPass - rollingAvg : null;       const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile, rollingAvg, divergence);
-      summary = result.summary || '';
+      const dbField = `${metricNames[i].toLowerCase()}_score`;
+      const rollingAvg = yesterdayScores ? (yesterdayScores[dbField] ?? null) : null;
+      const divergence = (rollingAvg != null) ? rawScore - rollingAvg : null;
+      const scoreToPass = isClaudeDerived ? 70 : (rollingAvg ?? rawScore);
+      const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile, rollingAvg, divergence);      summary = result.summary || '';
       breakdown = Array.isArray(result.breakdown) ? result.breakdown : [result.breakdown].filter(Boolean);
       derivedScore = result.derivedScore;
     }
