@@ -223,6 +223,24 @@ export default function AthleteDetail() {
   if ((dashboard.controversy_score ?? 0) > thresholds.controversy.warning) {
     alerts.push({ severity: (dashboard.controversy_score ?? 0) > thresholds.controversy.critical ? 'critical' : 'elevated', type: 'controversy', message: `Controversy score ${dashboard.controversy_score} — above warning threshold`, threshold: '>30', current: dashboard.controversy_score });
   }
+  if (rollingData?.scores) {
+    Object.entries(rollingData.scores).forEach(([key, data]) => {
+      if (data.divergence_from_average == null) return;
+      const absDiv = Math.abs(data.divergence_from_average);
+      if (absDiv < 10) return;
+      const label = key.charAt(0).toUpperCase() + key.slice(1);
+      const isInverse = key === 'controversy';
+      const isBad = isInverse ? data.divergence_from_average > 0 : data.divergence_from_average < 0;
+      if (!isBad) return;
+      alerts.push({
+        severity: absDiv >= 15 ? 'critical' : 'elevated',
+        type: 'divergence',
+        message: `${label} has dropped ${absDiv} points below its 7-day average — recent negative shift detected`,
+        threshold: `7-day avg: ${data.rolling_avg}`,
+        current: data.current
+      });
+    });
+  }
   if (alerts.length === 0) {
     alerts.push({ severity: 'nominal', type: 'ok', message: 'All metrics within normal range.', threshold: '—', current: '—' });
   }
