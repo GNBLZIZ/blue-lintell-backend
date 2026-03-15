@@ -400,7 +400,7 @@ export default function AthleteDetail() {
 
       {/* ── HEADER ── */}
       <div className="fade-in" style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem 2rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-        <div className="header-inner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="header-inner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.5rem' }}>
@@ -412,7 +412,6 @@ export default function AthleteDetail() {
                 {alertConfig.label}
               </span>
             </div>
-
             <div style={{ fontSize: '0.875rem', color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.4rem' }}>
               {dashboard.twitter_handle && (
                 <span>
@@ -427,7 +426,6 @@ export default function AthleteDetail() {
                 </span>
               )}
             </div>
-
             <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
               Last updated: {dashboard.updated_at ? new Date(dashboard.updated_at).toLocaleString() : '—'}
               {rollingData?.period_start && rollingData?.period_end && (
@@ -438,7 +436,7 @@ export default function AthleteDetail() {
             </p>
           </div>
 
-          <div className="header-right">
+          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
             {compositeScore != null && (
               <div className="composite-hero" style={{ textAlign: 'center', background: `${COLORS.gold}12`, border: `2px solid ${COLORS.gold}60`, borderRadius: 12, padding: '0.75rem 1.25rem', minWidth: 90 }}>
                 <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.2rem' }}>Overall Score</div>
@@ -466,16 +464,17 @@ export default function AthleteDetail() {
                 color: COLORS.navy,
                 fontWeight: 700,
                 boxShadow: '0 4px 12px rgba(201,169,97,0.3)',
-                alignSelf: 'flex-start',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
                 fontSize: '0.85rem',
-                padding: '0.6rem 1.1rem',
-                borderRadius: 8,
+                padding: '0.75rem 1.25rem',
+                borderRadius: 12,
                 border: 'none',
                 cursor: refreshing ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                height: '100%',
+                whiteSpace: 'nowrap'
               }}
             >
               {refreshing ? (
@@ -506,7 +505,6 @@ export default function AthleteDetail() {
           </button>
         ))}
       </div>
-
       {/* ── OVERVIEW TAB ── */}
       {activeTab === 'overview' && (
         <>
@@ -903,62 +901,80 @@ export default function AthleteDetail() {
       {/* ── INTELLIGENCE TAB ── */}
       {activeTab === 'intelligence' && (
         <>
+          {/* Overall Perception Summary — FIRST, premium treatment */}
+          <div style={{ background: `linear-gradient(135deg, ${COLORS.navy} 0%, rgba(26,58,92,0.6) 100%)`, border: `2px solid ${COLORS.gold}60`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ width: 4, height: '2rem', background: COLORS.gold, borderRadius: 2, flexShrink: 0 }} />
+              <h3 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Reputation Narrative</h3>
+            </div>
+            <p style={{ lineHeight: 1.85, color: '#e2e8f0', fontSize: '1.05rem', margin: '0 0 1.5rem', fontWeight: 400 }}>
+              {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}).`}
+            </p>
+            {/* Score context strip */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', paddingTop: '1.25rem', borderTop: `1px solid ${COLORS.gold}30` }}>
+              {scores.filter(s => s.value != null && s.value !== '—').map(s => (
+                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: `${COLORS.border}40`, borderRadius: 6, padding: '0.3rem 0.7rem' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: s.label === 'Controversy' ? (s.value > 30 ? COLORS.danger : COLORS.gold) : (s.value >= 75 ? COLORS.gold : s.value < 60 ? COLORS.danger : '#e2e8f0') }}>{s.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Strategic Intelligence */}
           {pd.strategic_intelligence && (
-            <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2.5rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-              <h3 style={{ margin: '0 0 2rem', color: COLORS.gold, fontSize: '1.5rem', fontWeight: 800 }}>Strategic Intelligence</h3>
+            <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
+              <h3 style={{ margin: '0 0 1.75rem', color: COLORS.gold, fontSize: '1.3rem', fontWeight: 800, letterSpacing: '0.02em' }}>Strategic Intelligence</h3>
+
               {pd.strategic_intelligence.strategic_overview && (
-                <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.border}20`, borderRadius: 8, borderLeft: `4px solid ${COLORS.gold}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <Target size={24} color={COLORS.gold} />
-                    <h4 style={{ margin: 0, color: COLORS.gold, fontSize: '1.1rem', fontWeight: 700 }}>Strategic Overview</h4>
+                <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: `${COLORS.border}20`, borderRadius: 8, borderLeft: `4px solid ${COLORS.gold}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                    <Target size={20} color={COLORS.gold} />
+                    <h4 style={{ margin: 0, color: COLORS.gold, fontSize: '1rem', fontWeight: 700 }}>Strategic Overview</h4>
                   </div>
-                  <p style={{ lineHeight: 1.7, color: '#e2e8f0', margin: 0, fontSize: '0.95rem' }}>{pd.strategic_intelligence.strategic_overview}</p>
+                  <p style={{ lineHeight: 1.75, color: '#e2e8f0', margin: 0, fontSize: '0.92rem' }}>{pd.strategic_intelligence.strategic_overview}</p>
                 </div>
               )}
+
               {pd.strategic_intelligence.key_risks?.length > 0 && (
-                <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.danger}10`, border: `2px solid ${COLORS.danger}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.danger}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <AlertCircle size={24} color={COLORS.danger} />
-                    <h4 style={{ margin: 0, color: COLORS.danger, fontSize: '1.1rem', fontWeight: 700 }}>Key Risks</h4>
+                <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: `${COLORS.danger}10`, border: `1px solid ${COLORS.danger}30`, borderRadius: 8, borderLeft: `4px solid ${COLORS.danger}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                    <AlertCircle size={20} color={COLORS.danger} />
+                    <h4 style={{ margin: 0, color: COLORS.danger, fontSize: '1rem', fontWeight: 700 }}>Key Risks</h4>
                   </div>
-                  <div style={{ color: '#fca5a5', lineHeight: 1.8, fontSize: '0.95rem' }}>
-                    {pd.strategic_intelligence.key_risks.map((risk, i) => <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{risk}</p>)}
+                  <div style={{ color: '#fca5a5', lineHeight: 1.8, fontSize: '0.92rem' }}>
+                    {pd.strategic_intelligence.key_risks.map((risk, i) => <p key={i} style={{ margin: i > 0 ? '0.875rem 0 0' : 0 }}>{risk}</p>)}
                   </div>
                 </div>
               )}
+
               {pd.strategic_intelligence.immediate_recommendations?.length > 0 && (
-                <div style={{ marginBottom: '2rem', padding: '1.5rem', background: `${COLORS.success}10`, border: `2px solid ${COLORS.success}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.success}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <CheckCircle size={24} color={COLORS.success} />
-                    <h4 style={{ margin: 0, color: COLORS.success, fontSize: '1.1rem', fontWeight: 700 }}>Immediate Recommendations</h4>
+                <div style={{ marginBottom: '1.5rem', padding: '1.5rem', background: `${COLORS.success}10`, border: `1px solid ${COLORS.success}30`, borderRadius: 8, borderLeft: `4px solid ${COLORS.success}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                    <CheckCircle size={20} color={COLORS.success} />
+                    <h4 style={{ margin: 0, color: COLORS.success, fontSize: '1rem', fontWeight: 700 }}>Immediate Recommendations</h4>
                   </div>
-                  <div style={{ color: '#86efac', lineHeight: 1.8, fontSize: '0.95rem' }}>
-                    {pd.strategic_intelligence.immediate_recommendations.map((rec, i) => <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{rec}</p>)}
+                  <div style={{ color: '#86efac', lineHeight: 1.8, fontSize: '0.92rem' }}>
+                    {pd.strategic_intelligence.immediate_recommendations.map((rec, i) => <p key={i} style={{ margin: i > 0 ? '0.875rem 0 0' : 0 }}>{rec}</p>)}
                   </div>
                 </div>
               )}
+
               {pd.strategic_intelligence.watch_outs?.length > 0 && (
-                <div style={{ padding: '1.5rem', background: `${COLORS.warning}10`, border: `2px solid ${COLORS.warning}40`, borderRadius: 8, borderLeft: `4px solid ${COLORS.warning}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <Eye size={24} color={COLORS.warning} />
-                    <h4 style={{ margin: 0, color: COLORS.warning, fontSize: '1.1rem', fontWeight: 700 }}>Watch-Outs</h4>
+                <div style={{ padding: '1.5rem', background: `${COLORS.warning}10`, border: `1px solid ${COLORS.warning}30`, borderRadius: 8, borderLeft: `4px solid ${COLORS.warning}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                    <Eye size={20} color={COLORS.warning} />
+                    <h4 style={{ margin: 0, color: COLORS.warning, fontSize: '1rem', fontWeight: 700 }}>Watch-Outs</h4>
                   </div>
-                  <div style={{ color: '#fcd34d', lineHeight: 1.8, fontSize: '0.95rem' }}>
-                    {pd.strategic_intelligence.watch_outs.map((watch, i) => <p key={i} style={{ margin: i > 0 ? '1rem 0 0' : 0 }}>{watch}</p>)}
+                  <div style={{ color: '#fcd34d', lineHeight: 1.8, fontSize: '0.92rem' }}>
+                    {pd.strategic_intelligence.watch_outs.map((watch, i) => <p key={i} style={{ margin: i > 0 ? '0.875rem 0 0' : 0 }}>{watch}</p>)}
                   </div>
                 </div>
               )}
             </div>
           )}
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Overall perception summary</h3>
-            <p style={{ lineHeight: 1.7, color: '#e2e8f0', fontSize: '0.95rem' }}>
-              {(pd.Sentiment?.summary && pd.Sentiment.summary.trim()) ? pd.Sentiment.summary : `${dashboard.athlete_name} maintains a reputation driven by sentiment (${dashboard.sentiment_score ?? '—'}), credibility (${dashboard.credibility_score ?? '—'}), and relevance (${dashboard.relevance_score ?? '—'}).`}
-            </p>
-          </div>
         </>
       )}
-
       {/* ── DISCLAIMER ── */}
       {disclaimerVisible && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(10,14,26,0.97)', backdropFilter: 'blur(12px)', borderTop: `2px solid ${COLORS.gold}60`, padding: '0.9rem 2rem', fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.5, zIndex: 1000, boxShadow: '0 -4px 16px rgba(0,0,0,0.4)' }}>
