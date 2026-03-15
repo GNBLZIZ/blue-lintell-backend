@@ -1047,6 +1047,7 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
 
   // Fetch yesterday's scores for divergence calculation
   let yesterdayScores = null;
+  let rollingAverages = {};
   if (athleteId) {
     const { data: hist } = await supabase
       .from('athlete_score_history')
@@ -1055,7 +1056,12 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
       .order('snapshot_date', { ascending: false })
       .limit(8);
     if (hist && hist.length >= 2) {
-      yesterdayScores = hist[1]; // index 0 = today's snapshot, 1 = yesterday
+      yesterdayScores = hist[1];
+      const scoreFields = ['sentiment_score','credibility_score','likeability_score','leadership_score','authenticity_score','controversy_score','relevance_score','influence_score'];
+      scoreFields.forEach(f => {
+        const vals = hist.slice(0, 7).map(h => h[f]).filter(v => v != null);
+        rollingAverages[f] = vals.length ? Math.round(vals.reduce((a,b) => a+b,0) / vals.length) : null;
+      });
     }
   }
   const metricNames = ['Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance'];
