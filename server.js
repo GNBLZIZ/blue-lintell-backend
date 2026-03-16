@@ -90,7 +90,7 @@ const APIFY_TWEET_SCRAPER = 'apidojo~tweet-scraper';
 async function getTwitterProfile(username) {
   const handle = username.replace('@', '');
   const items = await apifyRunSync(APIFY_TWEET_SCRAPER, {
-    startUrls: [`https://twitter.com/${handle}/with_replies`],
+    startUrls: [`https://twitter.com/${handle}`],
     maxItems: 5,
     sort: 'Latest'
   }, { timeout: 90 });
@@ -119,7 +119,6 @@ async function getRecentTweets(username, count = 20) {
     sort: 'Latest'
   }, { timeout: 120 });
   const list = Array.isArray(items) ? items : [];
-  if (list.length > 0) console.log(`🐦 Raw tweet sample:`, JSON.stringify(list[0]).substring(0, 300));
   const tweetsOnly = list.filter(t => {
     if (t.type === 'user') return false;
     const text = t.full_text ?? t.text ?? t.content ?? '';
