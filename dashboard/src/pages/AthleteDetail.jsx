@@ -613,10 +613,10 @@ export default function AthleteDetail() {
             {radarData.length > 0 && (
               <div className="fade-in" style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
                 <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Reputation snapshot</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart data={radarData}>
+                <ResponsiveContainer width="100%" height={320}>
+  <RadarChart data={radarData} margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
                     <PolarGrid stroke={COLORS.border} strokeWidth={1.5} />
-                    <PolarAngleAxis dataKey="metric" stroke="#cbd5e1" style={{ fontSize: '0.95rem', fontWeight: 600 }} />
+                    <PolarAngleAxis    dataKey="metric"    stroke="#cbd5e1"    tick={{ fill: '#cbd5e1', fontSize: 11, fontWeight: 600 }} />
                     <PolarRadiusAxis stroke="#94a3b8" domain={[0, 100]} style={{ fontSize: '0.75rem' }} />
                     <Radar name="Today's score" dataKey="current" stroke={COLORS.gold} fill={COLORS.gold} fillOpacity={0.4} strokeWidth={4} />
                     <Radar name="7-day average" dataKey="rolling7d" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.15} strokeDasharray="8 4" strokeWidth={3} />
