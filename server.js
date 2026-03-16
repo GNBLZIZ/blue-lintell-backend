@@ -811,26 +811,25 @@ SCORING COMPONENTS:
 ${careerContext}
 
 CRITICAL CONTEXT TO FACTOR IN:
-- If Twitter/X shows no recent posts (last post over 6 months ago), this is a significant commercial negative — brands pay for active amplification, not dormant accounts. Flag this explicitly.
+- If Twitter/X shows no recent posts (last post over 6 months ago), this is a significant commercial negative. Brands pay for active amplification, not dormant accounts. Flag this explicitly.
 - If Instagram is the primary active channel, assess whether that platform alone can deliver sufficient commercial reach.
-- Compare engagement rate to follower count — a 1.5M Instagram following with 1.4% engagement is worth less commercially than a 500K following with 4% engagement.
-- Career authority should reflect CURRENT status — a retired international carries less authority than an active one. Flag international retirement explicitly if relevant.
+- Compare engagement rate to follower count. A 1.5M Instagram following with 1.4% engagement is worth less commercially than a 500K following with 4% engagement.
+- Career authority should reflect CURRENT status. A retired international carries less authority than an active one. Flag international retirement explicitly if relevant.
 
 CALIBRATION:
-- 85+: Elite commercial asset — multiple active platforms, high engagement, current international profile
-- 75-84: Strong commercial platform with at least one area of genuine strength
-- 65-74: Solid but limited — either reach or engagement is underperforming
-- Below 65: Commercial liability — dormant platforms, disengaged audience, or fading career authority
+- 85+: Elite commercial asset. Multiple active platforms, high engagement, current international profile.
+- 75-84: Strong commercial platform with at least one area of genuine strength.
+- 65-74: Solid but limited. Either reach or engagement is underperforming.
+- Below 65: Commercial liability. Dormant platforms, disengaged audience, or fading career authority.
 
 YOUR OUTPUT MUST:
-1. Open with a single sentence verdict on commercial viability
-2. Give specific numbers — actual follower counts, engagement rates, caps
-3. Identify the single biggest factor holding the score back
-4. State explicitly whether each platform is active, dormant, or declining
-5. End with one concrete action that would move this score higher
+1. Open with a single sentence verdict on commercial viability.
+2. Give specific numbers — actual follower counts, engagement rates, caps.
+3. Identify the single biggest factor holding the score back.
+4. State explicitly whether each platform is active, dormant, or declining.
+5. End with one concrete action that would move this score higher.
 
 This must read like a briefing from a commercial director to a board, not a data summary. Be direct, be specific, be actionable.`
-
   // For Leadership, also extract a derived score from the analysis
   const returnScore = ['Leadership', 'Authenticity'].includes(metricName);
   const scoreInstructions = returnScore
