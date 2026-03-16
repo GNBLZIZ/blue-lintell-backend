@@ -51,8 +51,8 @@ function TimelineEvent({ ev, i, arr }) {
       {isNewsGroup && (
         <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
           {visibleArticles.map((a, j) => {
-            const sc = sentimentColor(a.sentiment);
             const hasBrandRisk = brandRiskKeywords.some(k => (a.title || '').toLowerCase().includes(k));
+const sc = hasBrandRisk ? COLORS.danger : a.sentiment === 'POSITIVE' ? COLORS.success : a.sentiment === 'NEGATIVE' ? COLORS.danger : '#475569';
             return (
               <a key={j} href={a.url || '#'} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div
