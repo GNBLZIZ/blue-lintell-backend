@@ -31,7 +31,58 @@ const SPONSOR_READINESS_CONFIG = {
   AMBER:  { color: '#f59e0b', bg: '#f59e0b18', border: '#f59e0b40', label: 'REVIEW ADVISED' },
   RED:    { color: '#dc2626', bg: '#dc262618', border: '#dc262640', label: 'COMMERCIAL RISK' },
 };
+function TimelineEvent({ ev, i, arr }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const isNewsGroup = ev.articles?.length > 0;
+  const visibleArticles = expanded ? ev.articles : ev.articles?.slice(0, 2);
+  const brandRiskKeywords = ['divorce','affair','onlyfans','escort','assault','arrested','banned','suspended','drugs','drunk','gambling','fraud','racist','scandal','misconduct','court','lawsuit'];
 
+  const sentimentColor = (sentiment) => sentiment === 'POSITIVE' ? COLORS.success : sentiment === 'NEGATIVE' ? COLORS.danger : '#475569';
+
+  return (
+    <div style={{ padding: '0.75rem 0', borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : 'none' }}>
+      <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>
+        {ev.date ? new Date(ev.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ev.platforms}
+      </div>
+      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e2e8f0' }}>{ev.title}</div>
+      {ev.description && !isNewsGroup && (
+        <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.25rem' }}>{ev.description}</div>
+      )}
+      {isNewsGroup && (
+        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          {visibleArticles.map((a, j) => {
+            const sc = sentimentColor(a.sentiment);
+            const hasBrandRisk = brandRiskKeywords.some(k => (a.title || '').toLowerCase().includes(k));
+            return (
+              <a key={j} href={a.url || '#'} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div
+                  style={{ fontSize: '0.82rem', color: '#94a3b8', paddingLeft: '0.75rem', borderLeft: `2px solid ${sc}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', transition: 'opacity 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity='0.7'}
+                  onMouseLeave={e => e.currentTarget.style.opacity='1'}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc, flexShrink: 0, marginTop: 2 }} />
+                    {hasBrandRisk && <span style={{ color: COLORS.warning, fontSize: '0.75rem' }}>⚠</span>}
+                    {a.title}
+                  </span>
+                  {a.source && <span style={{ color: COLORS.gold, fontWeight: 600, flexShrink: 0, fontSize: '0.75rem' }}>{a.source}</span>}
+                </div>
+              </a>
+            );
+          })}
+          {ev.articles.length > 2 && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              style={{ background: 'none', border: 'none', color: COLORS.gold, fontSize: '0.75rem', cursor: 'pointer', padding: '0.25rem 0.75rem', textAlign: 'left', fontWeight: 600 }}
+            >
+              {expanded ? '▲ Show less' : `▼ Show ${ev.articles.length - 2} more`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 export default function AthleteDetail() {
   const { athleteId } = useParams();
   const navigate = useNavigate();
@@ -675,25 +726,7 @@ export default function AthleteDetail() {
             <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Timeline</h3>
               {dashboard.timeline_events.slice(0, 15).map((ev, i, arr) => (
-                <div key={i} style={{ padding: '0.75rem 0', borderBottom: i < arr.length - 1 ? `1px solid ${COLORS.border}` : 'none' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>
-                    {ev.date ? new Date(ev.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''} · {ev.platforms}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#e2e8f0' }}>{ev.title}</div>
-                  {ev.description && !ev.articles?.length && (
-                    <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.25rem' }}>{ev.description}</div>
-                  )}
-                  {ev.articles?.length > 0 && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                      {ev.articles.map((a, j) => (
-                        <div key={j} style={{ fontSize: '0.82rem', color: '#94a3b8', paddingLeft: '0.75rem', borderLeft: `2px solid ${COLORS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                          <span>{a.title}</span>
-                          {a.source && <span style={{ color: COLORS.gold, fontWeight: 600, flexShrink: 0, fontSize: '0.75rem' }}>{a.source}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <TimelineEvent key={i} ev={ev} i={i} arr={arr} />
               ))}
             </div>
           )}
