@@ -704,13 +704,21 @@ export default function AthleteDetail() {
               <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
                 <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Most recent posts on 𝕏</h3>
                 {dashboard.recent_tweets.slice(0, 5).map((t) => (
-  <a key={t.id} href={`https://twitter.com/i/web/status/${t.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-  <div style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border, cursor: 'pointer', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity='0.7'} onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {t.likes ?? 0} · 🔁 {t.retweets ?? 0}
+                  <a key={t.id} href={`https://twitter.com/i/web/status/${t.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                    <div style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border, cursor: 'pointer', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity='0.7'} onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {t.likes ?? 0} · 🔁 {t.retweets ?? 0}
+                      </div>
+                      <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>
+                        {(() => {
+                          const text = (t.text || '').trim();
+                          const isMediaOnly = !text || /^https:\/\/t\.co\/\S+$/.test(text) || text.replace(/https:\/\/t\.co\/\S+/g, '').trim().length === 0;
+                          if (isMediaOnly) return <span style={{ color: '#475569', fontStyle: 'italic' }}>📷 Photo / video post</span>;
+                          return text.replace(/https:\/\/t\.co\/\S+/g, '').trim().substring(0, 120) + (text.length > 120 ? '…' : '');
+                        })()}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>   {(() => {     const text = (t.text || '').trim();     const isMediaOnly = !text || /^https:\/\/t\.co\/\S+$/.test(text) || text.replace(/https:\/\/t\.co\/\S+/g, '').trim().length === 0;     if (isMediaOnly) return <span style={{ color: '#475569', fontStyle: 'italic' }}>📷 Photo / video post</span>;     return text.replace(/https:\/\/t\.co\/\S+/g, '').trim().substring(0, 120) + (text.length > 120 ? '…' : '');   })()} </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             )}
@@ -719,12 +727,16 @@ export default function AthleteDetail() {
                 <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Most recent posts on Instagram</h3>
                 {instagramHandle && <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>@{instagramHandle}</div>}
                 {(dashboard.recent_instagram_posts || pd.recent_instagram_posts || []).slice(0, 5).map((p, i) => (
-                  <div key={p.id || i} style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border }}>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      {p.timestamp ? new Date(p.timestamp).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {p.likes ?? 0} · 💬 {p.comments ?? 0}
+                  <a key={p.id || i} href={p.permalink || '#'} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                    <div style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border, cursor: 'pointer', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity='0.7'} onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        {p.timestamp ? new Date(p.timestamp).toLocaleDateString('en-GB') : ''}&nbsp;·&nbsp;♥ {p.likes ?? 0} · 💬 {p.comments ?? 0}
+                      </div>
+                      <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>
+                        {(p.caption && p.caption.trim()) ? p.caption.substring(0, 120) + (p.caption.length > 120 ? '…' : '') : <span style={{ color: '#475569', fontStyle: 'italic' }}>📷 Photo / video post</span>}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>   {(p.caption && p.caption.trim()) ? p.caption.substring(0, 120) + (p.caption.length > 120 ? '…' : '') : <span style={{ color: '#475569', fontStyle: 'italic' }}>📷 Photo / video post</span>} </div>
-                  </div></a>
+                  </a>
                 ))}
               </div>
             )}
@@ -732,14 +744,15 @@ export default function AthleteDetail() {
               <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
                 <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Most recent news</h3>
                 {dashboard.recent_news.slice(0, 5).map((a, i) => (
-  <a key={i} href={a.url || '#'} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-  <div style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border, cursor: 'pointer', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity='0.7'} onMouseLeave={e => e.currentTarget.style.opacity='1'}>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      {a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-GB') : ''}
-                      {a.source?.name || a.source ? <span style={{ marginLeft: '0.5rem', color: COLORS.gold, fontWeight: 600 }}>· {a.source?.name || a.source}</span> : ''}
+                  <a key={i} href={a.url || '#'} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                    <div style={{ padding: '0.75rem 0', borderBottom: '1px solid ' + COLORS.border, cursor: 'pointer', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity='0.7'} onMouseLeave={e => e.currentTarget.style.opacity='1'}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        {a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-GB') : ''}
+                        {a.source?.name || a.source ? <span style={{ marginLeft: '0.5rem', color: COLORS.gold, fontWeight: 600 }}>· {a.source?.name || a.source}</span> : ''}
+                      </div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 500, marginTop: '0.25rem' }}>{a.title}</div>
                     </div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 500, marginTop: '0.25rem' }}>{a.title}</div>
-                  </div></a>
+                  </a>
                 ))}
               </div>
             )}
