@@ -830,7 +830,15 @@ YOUR OUTPUT MUST:
 5. End with one concrete action that would move this score higher.
 
 This must read like a briefing from a commercial director to a board, not a data summary. Be direct, be specific, be actionable.`
-  // For Leadership, also extract a derived score from the analysis
+  };
+
+  const guidance = scoreGuidance[metricName] || 'Analyse this score based on the available data.';
+
+  const brandRiskInfo = (metricName === 'Controversy' && context.brandRiskArticles && context.brandRiskArticles.length > 0)
+    ? `\n\nBRAND RISK ALERTS (${context.brandRiskArticles.length} articles with brand-damaging keywords):\n` +
+      context.brandRiskArticles.map((a, i) => `${i + 1}. "${a.title}" — Contains: ${a.keywords.slice(0, 3).join(', ')}`).join('\n')
+    : '';
+
   const returnScore = ['Leadership', 'Authenticity'].includes(metricName);
   const scoreInstructions = returnScore
     ? `\n\nADDITIONAL TASK: Based on your analysis, assign a score 0-85 for this metric. Output it as the very first line in format: DERIVED_SCORE: [number]\nThen continue with the normal explanation format below.`
