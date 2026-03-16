@@ -119,6 +119,7 @@ async function getRecentTweets(username, count = 20) {
     sort: 'Latest'
   }, { timeout: 120 });
   const list = Array.isArray(items) ? items : [];
+  if (list.length > 0) console.log(`🐦 Raw tweet sample:`, JSON.stringify(list[0]).substring(0, 300));
   const tweetsOnly = list.filter(t => {
     if (t.type === 'user') return false;
     const text = t.full_text ?? t.text ?? t.content ?? '';
