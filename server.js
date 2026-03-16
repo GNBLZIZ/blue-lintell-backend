@@ -801,23 +801,35 @@ Focus on: specific incidents, disciplinary issues, brand-damaging personal life 
 
     'Relevance': `Measures CULTURAL IMPACT & VISIBILITY — how much the athlete is part of the conversation. Focus on: trending status, mainstream media attention, cultural crossover, social conversation volume. Distinguish: Relevance is about VISIBILITY, not quality or sentiment.`,
 
-    'Influence': `Measures REAL-WORLD COMMERCIAL POWER — the athlete's ability to move audiences, shift opinions, and deliver value to commercial partners. This is a composite of three components:
+    'Influence': `Measures REAL-WORLD COMMERCIAL POWER — the athlete's ability to move audiences, shift opinions, and deliver value to commercial partners.
 
-REACH (40%): Total follower base across Twitter/X and Instagram. ${careerContext}
-ENGAGEMENT QUALITY (30%): Average engagement rate across platforms — this distinguishes genuine influence from passive following. A 3%+ rate signals an actively engaged audience.
-CAREER AUTHORITY (30%): Built from international caps, tournament appearances, club pedigree, and years at elite level.
+SCORING COMPONENTS:
+- REACH (40%): Total follower base across Twitter/X and Instagram
+- ENGAGEMENT QUALITY (30%): Average engagement rate — 3%+ signals an actively engaged audience, below 1% suggests passive following
+- CAREER AUTHORITY (30%): International caps, tournament appearances, club pedigree, years at elite level
 
-CALIBRATION: 80+ = genuinely powerful commercial asset. 65-79 = solid platform with room to grow. Below 65 = limited reach or disengaged audience.
+${careerContext}
 
-In your explanation: Be specific about what's driving the score. Name the actual follower numbers, engagement rate, and career credentials. Explain what this means for a commercial partner — would this athlete move product? Why or why not? What would need to change to push this score higher? This should read like a commercial intelligence briefing, not a formula description.`
-  };
+CRITICAL CONTEXT TO FACTOR IN:
+- If Twitter/X shows no recent posts (last post over 6 months ago), this is a significant commercial negative — brands pay for active amplification, not dormant accounts. Flag this explicitly.
+- If Instagram is the primary active channel, assess whether that platform alone can deliver sufficient commercial reach.
+- Compare engagement rate to follower count — a 1.5M Instagram following with 1.4% engagement is worth less commercially than a 500K following with 4% engagement.
+- Career authority should reflect CURRENT status — a retired international carries less authority than an active one. Flag international retirement explicitly if relevant.
 
-  const guidance = scoreGuidance[metricName] || 'Analyse this score based on the available data.';
+CALIBRATION:
+- 85+: Elite commercial asset — multiple active platforms, high engagement, current international profile
+- 75-84: Strong commercial platform with at least one area of genuine strength
+- 65-74: Solid but limited — either reach or engagement is underperforming
+- Below 65: Commercial liability — dormant platforms, disengaged audience, or fading career authority
 
-  const brandRiskInfo = (metricName === 'Controversy' && context.brandRiskArticles && context.brandRiskArticles.length > 0)
-    ? `\n\nBRAND RISK ALERTS (${context.brandRiskArticles.length} articles with brand-damaging keywords):\n` +
-      context.brandRiskArticles.map((a, i) => `${i + 1}. "${a.title}" — Contains: ${a.keywords.slice(0, 3).join(', ')}`).join('\n')
-    : '';
+YOUR OUTPUT MUST:
+1. Open with a single sentence verdict on commercial viability
+2. Give specific numbers — actual follower counts, engagement rates, caps
+3. Identify the single biggest factor holding the score back
+4. State explicitly whether each platform is active, dormant, or declining
+5. End with one concrete action that would move this score higher
+
+This must read like a briefing from a commercial director to a board, not a data summary. Be direct, be specific, be actionable.`
 
   // For Leadership, also extract a derived score from the analysis
   const returnScore = ['Leadership', 'Authenticity'].includes(metricName);
