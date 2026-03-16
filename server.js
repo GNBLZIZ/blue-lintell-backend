@@ -113,8 +113,8 @@ async function getTwitterProfile(username) {
 
 async function getRecentTweets(username, count = 20) {
   const handle = username.replace('@', '');
-  const items = await apifyRunSync(APIFY_TWEET_SCRAPER, {
-    twitterHandles: [handle],
+ const items = await apifyRunSync(APIFY_TWEET_SCRAPER, {
+    startUrls: [`https://twitter.com/${handle}/with_replies`],
     maxItems: Math.min(count, 100),
     sort: 'Latest'
   }, { timeout: 120 });
