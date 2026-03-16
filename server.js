@@ -1582,32 +1582,67 @@ app.get('/api/athlete/:id/rolling/:days', async (req, res) => {
   try {
     const { id, days } = req.params;
     const numDays = parseInt(days) || 7;
+
+    // Fetch enough history for two overlapping 7-day windows (today's avg + yesterday's avg)
     const { data: history, error } = await supabase
-      .from('athlete_score_history').select('*').eq('athlete_id', id)
-      .order('snapshot_date', { ascending: false }).limit(numDays + 1);
+      .from('athlete_score_history')
+      .select('*')
+      .eq('athlete_id', id)
+      .order('snapshot_date', { ascending: false })
+      .limit(numDays + 2);
+
     if (error) throw error;
     if (!history || history.length < 2) return res.status(404).json({ error: 'Not enough historical data' });
-    const today = history[0], yesterday = history[1];
-    const rollingData = history.slice(0, numDays);
-    const calcAvg = (field) => { const vals = rollingData.map(h => h[field]).filter(v => v != null); return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null; };
-    const calcChange = (field) => { const t = today[field], y = yesterday[field]; return (t != null && y != null) ? t - y : 0; };
-    const scoreFields = ['sentiment', 'credibility', 'likeability', 'leadership', 'authenticity', 'controversy', 'relevance'];
+
+    const scoreFields = ['sentiment', 'credibility', 'likeability', 'leadership', 'authenticity', 'controversy', 'relevance', 'influence'];
+
+    const calcWindowAvg = (data, field) => {
+      const dbField = `${field}_score`;
+      const vals = data.map(h => h[dbField]).filter(v => v != null);
+      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    };
+
+    // Today's 7-day window: rows 0 to numDays-1
+    const todayWindow = history.slice(0, numDays);
+    // Yesterday's 7-day window: rows 1 to numDays
+    const yesterdayWindow = history.slice(1, numDays + 1);
+    // Today's raw score: most recent snapshot
+    const todayRaw = history[0];
+
     const scores = {};
     scoreFields.forEach(f => {
       const dbField = `${f}_score`;
-      const change = calcChange(dbField);
-      const avg = calcAvg(dbField);
-      const divergence = (today[dbField] != null && avg != null) ? today[dbField] - avg : null;
+      const todayAvg = calcWindowAvg(todayWindow, f);
+      const yesterdayAvg = calcWindowAvg(yesterdayWindow, f);
+      const todayRawScore = todayRaw[dbField] ?? null;
+
+      // Change = today's rolling avg vs yesterday's rolling avg
+      const change = (todayAvg != null && yesterdayAvg != null) ? todayAvg - yesterdayAvg : 0;
+
+      // Divergence = today's raw 24hr score vs today's rolling avg (early warning signal)
+      const divergence = (todayRawScore != null && todayAvg != null) ? todayRawScore - todayAvg : null;
+
       scores[f] = {
-        current: today[dbField],
-        rolling_avg: avg,
-        change_from_yesterday: change,
+        current: todayRawScore,        // raw 24hr score — for divergence alerts only
+        rolling_avg: todayAvg,         // primary displayed score
+        yesterday_avg: yesterdayAvg,   // for reference
+        change_from_yesterday: change, // rolling avg vs rolling avg
         trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable',
-        divergence_from_average: divergence
+        divergence_from_average: divergence  // early warning trigger
       };
     });
-    res.json({ athlete_id: id, period_days: numDays, period_start: rollingData[rollingData.length - 1]?.snapshot_date, period_end: rollingData[0]?.snapshot_date, scores });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+
+    res.json({
+      athlete_id: id,
+      period_days: numDays,
+      period_start: todayWindow[todayWindow.length - 1]?.snapshot_date,
+      period_end: todayWindow[0]?.snapshot_date,
+      scores
+    });
+
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/athlete/refresh', async (req, res) => {
