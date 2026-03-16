@@ -339,7 +339,7 @@ export default function AthleteDetail() {
 
   return (
     <div className="page-wrap" style={{ color: '#fff' }}>
-      <style>{`
+  <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideInStagger { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
@@ -369,7 +369,13 @@ export default function AthleteDetail() {
         .score-grid { display: grid; gap: 1rem; margin-bottom: 2rem; grid-template-columns: repeat(2, 1fr); }
         @media (min-width: 768px) { .score-grid { grid-template-columns: repeat(3, 1fr); gap: 1.25rem; } }
         @media (min-width: 1100px) { .score-grid { grid-template-columns: repeat(4, 1fr); gap: 1.5rem; } }
-        @media (max-width: 639px) { .score-card { padding: 1.25rem !important; } }
+
+        /* FIX 1: vs yesterday label overflow on mobile */
+        @media (max-width: 639px) {
+          .score-card { padding: 1rem !important; }
+          .change-indicator { flex-wrap: wrap; gap: 0.3rem !important; padding: 0.5rem !important; }
+          .change-indicator span:last-child { font-size: 0.65rem !important; width: 100%; }
+        }
 
         .header-right { display: flex; align-items: center; gap: 1.25rem; flex-shrink: 0; }
         @media (max-width: 700px) {
@@ -396,8 +402,17 @@ export default function AthleteDetail() {
 
         .page-wrap { padding: 1rem; padding-bottom: 4rem; }
         @media (min-width: 640px) { .page-wrap { padding: 1.5rem; padding-bottom: 2rem; } }
-      `}</style>
 
+        /* FIX 2: Radar chart legend on mobile */
+        .recharts-legend-wrapper { overflow: visible !important; }
+        @media (max-width: 700px) {
+          .recharts-legend-wrapper { position: relative !important; width: 100% !important; }
+          .recharts-default-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+          .recharts-legend-item { margin: 0 !important; }
+          .recharts-legend-item-text { font-size: 0.75rem !important; }
+        }
+      `}</style>
+      
       {/* ── HEADER ── */}
       <div className="fade-in" style={{ background: COLORS.navy, borderRadius: 12, padding: '1.5rem 2rem', marginBottom: '1.5rem', border: `2px solid ${COLORS.gold}40`, boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
         <div className="header-inner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
