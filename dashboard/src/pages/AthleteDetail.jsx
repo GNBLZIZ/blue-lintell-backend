@@ -32,7 +32,7 @@ const SPONSOR_READINESS_CONFIG = {
   RED:    { color: '#dc2626', bg: '#dc262618', border: '#dc262640', label: 'COMMERCIAL RISK' },
 };
 function TimelineEvent({ ev, i, arr }) {
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = useState(false);
   const isNewsGroup = ev.articles?.length > 0;
   const visibleArticles = expanded ? ev.articles : ev.articles?.slice(0, 2);
   const brandRiskKeywords = ['divorce','affair','onlyfans','escort','assault','arrested','banned','suspended','drugs','drunk','gambling','fraud','racist','scandal','misconduct','court','lawsuit'];
