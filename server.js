@@ -1094,7 +1094,10 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
     let summary = '', breakdown = [], derivedScore = null;
     if (ANTHROPIC_API_KEY) {
       const dbField = `${metricNames[i].toLowerCase()}_score`;
-      const rollingAvg = rollingAverages[dbField] ?? null;
+      const storedRollingField = `${metricNames[i].toLowerCase()}_rolling_avg`;
+      const rollingAvg = (dashboardData && dashboardData[storedRollingField] != null)
+        ? dashboardData[storedRollingField]
+        : (rollingAverages[dbField] ?? null);
       const divergence = (rollingAvg != null) ? rawScore - rollingAvg : null;
       const scoreToPass = isClaudeDerived ? 70 : (rollingAvg ?? rawScore);
       const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile, rollingAvg, divergence);      summary = result.summary || '';
@@ -1398,9 +1401,42 @@ const seen = new Set();
       })),
       brandRiskArticles: scores.brandRiskArticles || []
     };
+// Calculate and store rolling averages
+    const { data: recentHistory } = await supabase
+      .from('athlete_score_history')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('snapshot_date', { ascending: false })
+      .limit(7);
+    
+    const calcRollingAvg = (field) => {
+      if (!recentHistory || recentHistory.length === 0) return null;
+      const vals = recentHistory.map(h => h[field]).filter(v => v != null);
+      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    };
 
+    dashboardData.sentiment_rolling_avg = calcRollingAvg('sentiment_score');
+    dashboardData.credibility_rolling_avg = calcRollingAvg('credibility_score');
+    dashboardData.likeability_rolling_avg = calcRollingAvg('likeability_score');
+    dashboardData.leadership_rolling_avg = calcRollingAvg('leadership_score');
+    dashboardData.authenticity_rolling_avg = calcRollingAvg('authenticity_score');
+    dashboardData.controversy_rolling_avg = calcRollingAvg('controversy_score');
+    dashboardData.relevance_rolling_avg = calcRollingAvg('relevance_score');
+    dashboardData.influence_rolling_avg = calcRollingAvg('influence_score');
+    console.log('💾 Saving...');
+    const { error } = await supabase.from('athlete_dashboards').upsert(dashboardData, { onConflict: 'athlete_id' });
+    if (error) { console.error('❌ DB error:', error.message); return null; }
+    console.log('✅ Dashboard updated — Composite:', scores.compositeScore, '| Sponsor:', scores.sponsorReadiness?.rating);
+    await saveHistoricalSnapshot(athleteId, dashboardData);
+    return dashboardData;
+
+  } catch (e) {
+    console.error('❌ Error collecting data:', e);
+    return null;
+  }
+}
     console.log('📝 Generating score explanations (Claude)...');
-    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext, athleteName, careerProfile, athleteId, null);
+    const storedRollingAvgs = {       sentiment_rolling_avg: calcRollingAvg('sentiment_score'),       credibility_rolling_avg: calcRollingAvg('credibility_score'),       likeability_rolling_avg: calcRollingAvg('likeability_score'),       leadership_rolling_avg: calcRollingAvg('leadership_score'),       authenticity_rolling_avg: calcRollingAvg('authenticity_score'),       controversy_rolling_avg: calcRollingAvg('controversy_score'),       relevance_rolling_avg: calcRollingAvg('relevance_score'),       influence_rolling_avg: calcRollingAvg('influence_score')     };     const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext, athleteName, careerProfile, athleteId, storedRollingAvgs);
 
     // Engagement metrics
     const twitterFollowerCount = twitterProfile?.followers ?? 0;
@@ -1458,40 +1494,7 @@ const seen = new Set();
     };
 
     dashboardData.overall_alert_level = calculateAlertLevel(dashboardData);
-// Calculate and store rolling averages
-    const { data: recentHistory } = await supabase
-      .from('athlete_score_history')
-      .select('*')
-      .eq('athlete_id', athleteId)
-      .order('snapshot_date', { ascending: false })
-      .limit(7);
-    
-    const calcRollingAvg = (field) => {
-      if (!recentHistory || recentHistory.length === 0) return null;
-      const vals = recentHistory.map(h => h[field]).filter(v => v != null);
-      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-    };
 
-    dashboardData.sentiment_rolling_avg = calcRollingAvg('sentiment_score');
-    dashboardData.credibility_rolling_avg = calcRollingAvg('credibility_score');
-    dashboardData.likeability_rolling_avg = calcRollingAvg('likeability_score');
-    dashboardData.leadership_rolling_avg = calcRollingAvg('leadership_score');
-    dashboardData.authenticity_rolling_avg = calcRollingAvg('authenticity_score');
-    dashboardData.controversy_rolling_avg = calcRollingAvg('controversy_score');
-    dashboardData.relevance_rolling_avg = calcRollingAvg('relevance_score');
-    dashboardData.influence_rolling_avg = calcRollingAvg('influence_score');
-    console.log('💾 Saving...');
-    const { error } = await supabase.from('athlete_dashboards').upsert(dashboardData, { onConflict: 'athlete_id' });
-    if (error) { console.error('❌ DB error:', error.message); return null; }
-    console.log('✅ Dashboard updated — Composite:', scores.compositeScore, '| Sponsor:', scores.sponsorReadiness?.rating);
-    await saveHistoricalSnapshot(athleteId, dashboardData);
-    return dashboardData;
-
-  } catch (e) {
-    console.error('❌ Error collecting data:', e);
-    return null;
-  }
-}
 
 // ==================== API ENDPOINTS ====================
 
