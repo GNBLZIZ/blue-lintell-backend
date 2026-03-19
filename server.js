@@ -1458,7 +1458,28 @@ const seen = new Set();
     };
 
     dashboardData.overall_alert_level = calculateAlertLevel(dashboardData);
+// Calculate and store rolling averages
+    const { data: recentHistory } = await supabase
+      .from('athlete_score_history')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('snapshot_date', { ascending: false })
+      .limit(7);
+    
+    const calcRollingAvg = (field) => {
+      if (!recentHistory || recentHistory.length === 0) return null;
+      const vals = recentHistory.map(h => h[field]).filter(v => v != null);
+      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    };
 
+    dashboardData.sentiment_rolling_avg = calcRollingAvg('sentiment_score');
+    dashboardData.credibility_rolling_avg = calcRollingAvg('credibility_score');
+    dashboardData.likeability_rolling_avg = calcRollingAvg('likeability_score');
+    dashboardData.leadership_rolling_avg = calcRollingAvg('leadership_score');
+    dashboardData.authenticity_rolling_avg = calcRollingAvg('authenticity_score');
+    dashboardData.controversy_rolling_avg = calcRollingAvg('controversy_score');
+    dashboardData.relevance_rolling_avg = calcRollingAvg('relevance_score');
+    dashboardData.influence_rolling_avg = calcRollingAvg('influence_score');
     console.log('💾 Saving...');
     const { error } = await supabase.from('athlete_dashboards').upsert(dashboardData, { onConflict: 'athlete_id' });
     if (error) { console.error('❌ DB error:', error.message); return null; }
