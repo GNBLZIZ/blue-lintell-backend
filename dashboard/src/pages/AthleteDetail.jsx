@@ -219,13 +219,19 @@ export default function AthleteDetail() {
 
   const scores = SCORE_KEYS.map((label, i) => {
     const field = SCORE_FIELDS[i];
+    const scoreKey = field.replace('_score', '');
+    const storedRollingField = `${scoreKey}_rolling_avg`;
     let currentValue = dashboard[field] ?? '—';
-    let rollingAvg = currentValue;
+    // Use stored rolling avg from dashboard (matches what Claude used for commentary)
+    // Fall back to live rolling endpoint if not available
+    let rollingAvg = dashboard[storedRollingField] ?? currentValue;
     let changeFromYesterday = null;
     let trend = 'stable';
-    const scoreKey = field.replace('_score', '');
     if (rollingData?.scores?.[scoreKey]) {
-      rollingAvg = rollingData.scores[scoreKey].rolling_avg ?? currentValue;
+      // Only use live endpoint for change indicators and trend, not the primary score
+      if (dashboard[storedRollingField] == null) {
+        rollingAvg = rollingData.scores[scoreKey].rolling_avg ?? currentValue;
+      }
       changeFromYesterday = rollingData.scores[scoreKey].change_from_yesterday ?? null;
       trend = rollingData.scores[scoreKey].trend ?? 'stable';
     }
@@ -258,8 +264,11 @@ export default function AthleteDetail() {
     let current = dashboard[field] ?? 0;
     const day7 = snap7?.[field] ?? current;
     const day30 = snap30?.[field] ?? current;
-    let rolling7d = current;
-    if (rollingData?.scores?.[scoreKey]) rolling7d = rollingData.scores[scoreKey].rolling_avg ?? current;
+    const storedRollingField = `${scoreKey}_rolling_avg`;
+    let rolling7d = dashboard[storedRollingField] ?? current;
+    if (rolling7d === current && rollingData?.scores?.[scoreKey]) {
+      rolling7d = rollingData.scores[scoreKey].rolling_avg ?? current;
+    }
     const change = current - (day30 || current);
     const isInverse = metric === 'Controversy';
     const trend = change === 0 ? 'stable' : isInverse
