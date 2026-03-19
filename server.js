@@ -1094,7 +1094,7 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
     let summary = '', breakdown = [], derivedScore = null;
     if (ANTHROPIC_API_KEY) {
       const dbField = `${metricNames[i].toLowerCase()}_score`;
-      const storedRollingField = `${metricNames[i].toLowerCase()}_rolling_avg`;       const rollingAvg = (dashboardData && dashboardData[storedRollingField] != null)          ? dashboardData[storedRollingField]          : (rollingAverages[dbField] ?? null);
+      const rollingAvg = rollingAverages[dbField] ?? null;
       const divergence = (rollingAvg != null) ? rawScore - rollingAvg : null;
       const scoreToPass = isClaudeDerived ? 70 : (rollingAvg ?? rawScore);
       const result = await generateScoreExplanation(metricNames[i], scoreToPass, context, athleteName, careerProfile, rollingAvg, divergence);      summary = result.summary || '';
@@ -1400,7 +1400,7 @@ const seen = new Set();
     };
 
     console.log('📝 Generating score explanations (Claude)...');
-    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext, athleteName, careerProfile, athleteId, dashboardData);
+    const perception_details = await buildPerceptionDetails(scores, athleteData, claudeContext, athleteName, careerProfile, athleteId, null);
 
     // Engagement metrics
     const twitterFollowerCount = twitterProfile?.followers ?? 0;
