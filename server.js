@@ -1399,15 +1399,15 @@ const seen = new Set();
     };
 
     // Calculate rolling averages BEFORE generating commentary so Claude uses same numbers as cards
-    const { data: recentHistory } = await supabase
+    const { data: recentHistoryForRolling } = await supabase
       .from('athlete_score_history')
       .select('*')
       .eq('athlete_id', athleteId)
       .order('snapshot_date', { ascending: false })
       .limit(7);
     const calcRollingAvg = (field) => {
-      if (!recentHistory || recentHistory.length === 0) return null;
-      const vals = recentHistory.map(h => h[field]).filter(v => v != null);
+      if (!recentHistoryForRolling || recentHistoryForRolling.length === 0) return null;
+      const vals = recentHistoryForRolling.map(h => h[field]).filter(v => v != null);
       return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
     };
     const storedRollingAvgs = {
