@@ -1042,6 +1042,17 @@ export default function AthleteDetail() {
                     {pd.strategic_intelligence.watch_outs.map((watch, i) => <p key={i} style={{ margin: i > 0 ? '0.875rem 0 0' : 0 }}>{watch}</p>)}
                   </div>
                 </div>
+             )}
+              {pd.strategic_intelligence.looking_ahead?.length > 0 && (
+                <div style={{ padding: '1.5rem', background: `${COLORS.success}10`, border: `1px solid ${COLORS.success}30`, borderRadius: 8, borderLeft: `4px solid ${COLORS.success}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                    <Target size={20} color={COLORS.success} />
+                    <h4 style={{ margin: 0, color: COLORS.success, fontSize: '1rem', fontWeight: 700 }}>Looking Ahead — 30-90 Day Outlook</h4>
+                  </div>
+                  <div style={{ color: '#86efac', lineHeight: 1.8, fontSize: '0.92rem' }}>
+                    {pd.strategic_intelligence.looking_ahead.map((item, i) => <p key={i} style={{ margin: i > 0 ? '0.875rem 0 0' : 0 }}>{item}</p>)}
+                  </div>
+                </div>
               )}
             </div>
           )}
