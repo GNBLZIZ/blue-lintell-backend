@@ -772,11 +772,16 @@ async function generateScoreExplanation(metricName, score, context, athleteName,
   ).join('\n') || 'No recent tweets available.';
 
   const careerContext = careerProfile
-    ? `Career context: ${careerProfile.international_caps || 0} international caps for ${careerProfile.national_team || 'national team'}, ` +
+    ? `Career context: ${careerProfile.international_caps || 0} international caps for ${careerProfile.national_team || 'national team'}` +
+      `${careerProfile.international_retired ? ` (RETIRED FROM INTERNATIONAL FOOTBALL${careerProfile.international_retired_year ? ` in ${careerProfile.international_retired_year}` : ''} — treat caps as legacy achievement, not active currency)` : ' (active international)'}. ` +
       `${careerProfile.world_cup_appearances || 0} World Cup(s), ` +
       `${careerProfile.years_at_elite_level || 0} years at elite level, ` +
       `${careerProfile.major_honours || 0} major honours, ` +
-      `current club level: ${careerProfile.highest_club_level || 'premier_league'}.`
+      `current club: ${careerProfile.current_club || 'unknown'}, ` +
+      `career stage: ${careerProfile.career_stage || 'peak'}` +
+      `${careerProfile.contract_expiry_year ? `, contract expires: ${careerProfile.contract_expiry_year}` : ''}.` +
+      `${careerProfile.career_stage === 'late_career' ? ' IMPORTANT: This athlete is in late career — recommendations should address post-career positioning, legacy building and commercial transition, not just short-term profile management.' : ''}` +
+      `${careerProfile.career_stage === 'rising' ? ' IMPORTANT: This athlete is in rising career stage — World Cup 2026 selection and momentum are commercially significant. England squad announcements are material reputation events.' : ''}`
     : '';
 
   const scoreGuidance = {
