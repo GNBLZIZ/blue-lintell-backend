@@ -1027,7 +1027,13 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
       .map(l => `• ${l.replace(/^[•\-]\s*/, '')}`);
     const total = allBullets.length;
     if (total === 0) {
-      return { strategic_overview: overview, key_risks: ['• No specific risks identified'], immediate_recommendations: ['• Continue monitoring'], watch_outs: ['• Track sentiment changes'] };
+      // Extract looking ahead bullets — Claude uses "LOOKING AHEAD" as a marker
+    const lookingAheadStart = allLines.findIndex(l => l.toLowerCase().includes('looking ahead'));
+    const lookingAhead = lookingAheadStart > -1 
+      ? allLines.slice(lookingAheadStart + 1).filter(l => l.startsWith('-')).map(l => `• ${l.replace(/^-\s*/, '')}`)
+      : [];
+
+    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: lookingAhead };
     }
     let risks = [], recommendations = [], watchouts = [];
     if (total >= 9) {
