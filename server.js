@@ -1050,7 +1050,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
       if (recommendations.length === 0) recommendations.push(allBullets[1] || '• Maintain current engagement');
       if (watchouts.length === 0) watchouts.push(allBullets[allBullets.length - 1] || '• Track sentiment changes');
     }
-    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: finalLookingAhead };
+    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: lookingAhead };
   } catch (e) {
     console.error('Strategic intelligence error:', e.message);
     return null;
