@@ -913,7 +913,7 @@ FORMAT:
     const bulletLines = lines.filter(l => l.startsWith('•') || l.startsWith('-'));
     const summaryLines = lines.filter(l => !l.startsWith('•') && !l.startsWith('-') && !l.startsWith('DERIVED_SCORE'));
     const summary = summaryLines.join(' ').trim();
-    const breakdown = bulletLines.map(l => `• ${l.replace(/^[•\-]\s*/, '')}`);
+    const breakdown = bulletLines.map(l => `\u2022 ${l.replace(/^[\u2022\-]\s*/, '')}`);
 
     return { summary, breakdown, derivedScore };
   } catch (e) {
@@ -1032,7 +1032,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
     const overview = overviewLines.join(' ').trim();
     const allBullets = allLines
       .filter(l => l.startsWith('•') || l.startsWith('-'))
-      .map(l => `• ${l.replace(/^[•\-]\s*/, '')}`);
+      .map(l => `\u2022 ${l.replace(/^[\u2022\-]\s*/, '')}`);
     const total = allBullets.length;
     if (total === 0) {
       return { strategic_overview: overview, key_risks: ['• No specific risks identified'], immediate_recommendations: ['• Continue monitoring'], watch_outs: ['• Track sentiment changes'] };
