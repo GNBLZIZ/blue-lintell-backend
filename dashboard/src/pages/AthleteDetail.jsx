@@ -560,7 +560,7 @@ export default function AthleteDetail() {
                   Refreshing…
                 </>
               ) : (
-                '↻ Update now'
+                '↻ UPDATE NOW'
               )}
             </button>
           </div>
@@ -1012,7 +1012,7 @@ export default function AthleteDetail() {
                       status: twitterStatus,
                       color: twitterColor,
                       stats: dashboard.twitter_followers ? `${(dashboard.twitter_followers / 1000).toFixed(0)}K followers · ${dashboard.avg_engagement_rate_twitter ? dashboard.avg_engagement_rate_twitter.toFixed(2) + '% engagement' : 'no engagement data'}` : 'No data',
-                      note: dormantDays > 90 ? `Last post ${dormantDays} days ago — brands pay for active amplification, not dormant accounts` : dormantDays ? `Last post ${dormantDays} days ago` : 'No post date available'
+                      note: (() => {   if (!dormantDays) return 'No post date available';   const lastDate = new Date(lastTweetDate);   const formatted = dormantDays < 30     ? `Last post ${lastDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`     : `Last post ${lastDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;   return dormantDays > 90 ? `${formatted} — brands pay for active amplification, not dormant accounts` : formatted; })()
                     },
                     {
                       name: 'Instagram',
