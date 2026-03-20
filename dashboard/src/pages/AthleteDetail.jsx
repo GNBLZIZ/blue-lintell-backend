@@ -318,8 +318,8 @@ export default function AthleteDetail() {
   const manualIncidents = (dashboard.manual_controversy_incidents || []).length > 0 
     ? dashboard.manual_controversy_incidents 
     : incidents;
-  const sentimentVal = dashboard.sentiment_score ?? 70;
-  const controversyVal = dashboard.controversy_score ?? 0;
+ const sentimentVal = dashboard.sentiment_rolling_avg ?? dashboard.sentiment_score ?? 70;
+  const controversyVal = dashboard.controversy_rolling_avg ?? dashboard.controversy_score ?? 0;
   const sentimentSparkData = (history || []).slice(-14).map(h => ({ value: h.sentiment_score ?? 0 })).filter(d => d.value > 0);
   const controversySparkData = (history || []).slice(-14).map(h => ({ value: h.controversy_score ?? 0 })).filter(d => d.value >= 0);
 
@@ -880,7 +880,7 @@ export default function AthleteDetail() {
                 {[
                   { label: 'Sentiment', value: sentimentVal, threshold: 60, isInverse: false },
                   { label: 'Controversy', value: controversyVal, threshold: 30, isInverse: true },
-                  { label: 'Credibility', value: dashboard.credibility_score ?? 0, threshold: 60, isInverse: false },
+                  { label: 'Credibility', value: dashboard.credibility_rolling_avg ?? dashboard.credibility_score ?? 0, threshold: 60, isInverse: false },
                 ].map(({ label, value, threshold, isInverse }) => {
                   const ok = isInverse ? value < threshold : value >= threshold;
                   return (
