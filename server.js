@@ -1087,8 +1087,8 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
       });
     }
   }
-  const metricNames = ['Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance'];
-  const scoreKeys = ['sentimentScore', 'credibilityScore', 'likeabilityScore', 'leadershipScore', 'authenticityScore', 'controversyScore', 'relevanceScore'];
+  const metricNames = ['Sentiment', 'Credibility', 'Likeability', 'Leadership', 'Authenticity', 'Controversy', 'Relevance', 'Influence'];
+  const scoreKeys = ['sentimentScore', 'credibilityScore', 'likeabilityScore', 'leadershipScore', 'authenticityScore', 'controversyScore', 'relevanceScore', 'influenceScore'];
 
   for (let i = 0; i < metricNames.length; i++) {
     // For Leadership and Authenticity, pass a placeholder score to Claude
@@ -1144,16 +1144,6 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
     if (strategicIntel) base.strategic_intelligence = strategicIntel;
   }
 
-  // Add Influence score explanation (simple — no Claude call needed)
-  const careerAuth = calculateCareerAuthorityScore(careerProfile);
-  base['Influence'] = {
-    summary: `Influence combines reach (${scores.scoringMetadata?.reachScore || 0}/100), engagement quality, and career authority (${careerAuth}/100 based on caps, honours, and club level). ${!careerProfile ? 'Career profile not yet set — add via onboarding endpoint to improve this score.' : ''}`,
-    breakdown: [
-      `• Reach component: ${scores.scoringMetadata?.reachScore || 0}/100 (follower scale across platforms)`,
-      `• Engagement quality: ${scores.scoringMetadata?.engagementRate || 0}% average engagement rate`,
-      `• Career authority: ${careerAuth}/100${careerProfile ? ` (${careerProfile.international_caps || 0} caps, ${careerProfile.major_honours || 0} honours)` : ' (not set — update via career profile endpoint)'}`
-    ]
-  };
 
   // Add sponsor readiness to perception details
   if (scores.sponsorReadiness) {
