@@ -1001,8 +1001,8 @@ Tactical actions for next 7-14 days. Specific and actionable. Prioritised by urg
 [WATCH-OUTS — 3-4 bullets with •]
 Early warning signals that need monitoring. Specific timing and triggers.
 
-STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Write like you're briefing a client who pays £12k/month. British English throughout.  LOOKING AHEAD - 30 TO 90 DAY OUTLOOK - exactly 3 bullets starting with the word AHEAD: Forward-looking intelligence based on current trajectory, career stage and known upcoming events. Consider where scores are likely to trend, upcoming reputation windows, commercial opportunities or risks on the horizon, whether current social media strategy including strategic silence is appropriate for the next 90 days, and what success looks like in 90 days if recommendations are followed. For late career athletes address post-playing transition signals and timing.`;
-
+STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Write like you're briefing a client who pays £12k/month. British English throughout.  LOOKING AHEAD - 30 TO 90 DAY OUTLOOK - exactly 3 bullets, each must start with AHEAD:
+Forward-looking intelligence based on current trajectory, career stage and known upcoming events. Consider where scores are likely to trend, upcoming reputation windows, commercial opportunities or risks on the horizon, whether current social media strategy including strategic silence is appropriate for the next 90 days, and what success looks like in 90 days if recommendations are followed. For late career athletes address post-playing transition signals and timing. Each bullet MUST begin with the word AHEAD: followed by the insight.`;
   try {
     const res = await axios.post(
       'https://api.anthropic.com/v1/messages',
@@ -1019,7 +1019,6 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
     }
     const text = (res.data?.content?.[0]?.text || '').replace(/\*\*/g, '').replace(/\*/g, '');
     const allLines = text.split('\n').map(s => s.trim()).filter(Boolean);
-    console.log('📋 Strategic intel raw:', text.substring(0, 2000));
     const firstBulletIndex = allLines.findIndex(l => l.startsWith('•') || l.startsWith('-'));
     const overviewLines = firstBulletIndex > 0 ? allLines.slice(0, firstBulletIndex) : [allLines[0] || ''];
     const overview = overviewLines.join(' ').trim();
@@ -1027,10 +1026,10 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
       .filter(l => l.startsWith('•') || l.startsWith('-'))
       .map(l => `• ${l.replace(/^[•\-]\s*/, '')}`);
     const total = allBullets.length;
-    const lookingAhead = allBullets.slice(-3);
+    const lookingAhead = allLines       .filter(l => l.toLowerCase().startsWith('ahead:') || l.toLowerCase().startsWith('- ahead:') || l.toLowerCase().startsWith('• ahead:'))       .map(l => l.replace(/^[-•]\s*/i, '').replace(/^ahead:\s*/i, '').trim());     const finalLookingAhead = lookingAhead.length > 0 ? lookingAhead : allBullets.slice(-3);
     if (total === 0) {
 
-    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: lookingAhead };
+    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: finalLookingAhead };
     }
     let risks = [], recommendations = [], watchouts = [];
     if (total >= 9) {
@@ -1050,7 +1049,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
       if (recommendations.length === 0) recommendations.push(allBullets[1] || '• Maintain current engagement');
       if (watchouts.length === 0) watchouts.push(allBullets[allBullets.length - 1] || '• Track sentiment changes');
     }
-    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: lookingAhead };
+    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: finalLookingAhead };
   } catch (e) {
     console.error('Strategic intelligence error:', e.message);
     return null;
