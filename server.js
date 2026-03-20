@@ -1001,7 +1001,7 @@ Tactical actions for next 7-14 days. Specific and actionable. Prioritised by urg
 [WATCH-OUTS — 3-4 bullets with •]
 Early warning signals that need monitoring. Specific timing and triggers.
 
-STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Write like you're briefing a client who pays £12k/month. British English throughout.  [LOOKING AHEAD - 30-90 DAY OUTLOOK - 3-4 bullets with -] Forward-looking intelligence based on current trajectory, career stage and known upcoming events. Consider where scores are likely to trend, upcoming reputation windows, commercial opportunities or risks on the horizon, whether current social media strategy including strategic silence is appropriate for the next 90 days, and what success looks like in 90 days if recommendations are followed. For late career athletes address post-playing transition signals and timing.`;
+STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Write like you're briefing a client who pays £12k/month. British English throughout.  LOOKING AHEAD - 30 TO 90 DAY OUTLOOK - exactly 3 bullets starting with the word AHEAD: Forward-looking intelligence based on current trajectory, career stage and known upcoming events. Consider where scores are likely to trend, upcoming reputation windows, commercial opportunities or risks on the horizon, whether current social media strategy including strategic silence is appropriate for the next 90 days, and what success looks like in 90 days if recommendations are followed. For late career athletes address post-playing transition signals and timing.`;
 
   try {
     const res = await axios.post(
@@ -1029,10 +1029,12 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
     const total = allBullets.length;
     if (total === 0) {
       // Extract looking ahead bullets — Claude uses "LOOKING AHEAD" as a marker
-    const lookingAheadStart = allLines.findIndex(l => l.toLowerCase().includes('looking ahead'));
-    const lookingAhead = lookingAheadStart > -1 
-      ? allLines.slice(lookingAheadStart + 1).filter(l => l.startsWith('-')).map(l => `• ${l.replace(/^-\s*/, '')}`)
-      : [];
+    const lookingAhead = allLines
+      .filter(l => l.toLowerCase().startsWith('ahead:') || l.toLowerCase().startsWith('- ahead:') || l.toLowerCase().startsWith('ahead -'))
+      .map(l => `• ${l.replace(/^[-•]\s*/i, '').replace(/^ahead[-:]\s*/i, '').trim()}`);
+    
+    // Fallback — take last 3 bullets as looking ahead if none found
+    const finalLookingAhead = lookingAhead.length > 0 ? lookingAhead : allBullets.slice(-3);
 
     return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: lookingAhead };
     }
@@ -1054,7 +1056,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
       if (recommendations.length === 0) recommendations.push(allBullets[1] || '• Maintain current engagement');
       if (watchouts.length === 0) watchouts.push(allBullets[allBullets.length - 1] || '• Track sentiment changes');
     }
-    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: [] };
+    return { strategic_overview: overview, key_risks: risks, immediate_recommendations: recommendations, watch_outs: watchouts, looking_ahead: finalLookingAhead };
   } catch (e) {
     console.error('Strategic intelligence error:', e.message);
     return null;
