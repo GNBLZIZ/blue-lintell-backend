@@ -925,7 +925,7 @@ FORMAT:
 // ==================== CLAUDE: STRATEGIC INTELLIGENCE ====================
 // Your existing strategic intelligence prompt — kept exactly as-is as it produces great output.
 
-async function generateStrategicIntelligence(scores, athleteData, context, athleteName) {
+async function generateStrategicIntelligence(scores, athleteData, context, athleteName, careerProfile = null) {
   if (!ANTHROPIC_API_KEY) return null;
 
   const newsHeadlines = (context.recentNewsHeadlines || []).slice(0, 8).map((a, i) =>
@@ -973,6 +973,15 @@ STATISTICS:
 - Twitter: ${context.twitterPctPositive}% positive, ${context.twitterFollowers} followers, ${context.twitterMentions} mentions
 - Instagram: ${context.instagramPctPositive}% positive, ${context.instagramFollowers} followers, ${context.instagramPosts} posts
 - News: ${context.newsMentions} articles, ${context.newsSentiment}
+CAREER CONTEXT:
+${careerProfile ? `
+- Current club: ${careerProfile.current_club || 'unknown'}
+- Career stage: ${careerProfile.career_stage || 'peak'}
+- International status: ${careerProfile.international_retired ? `RETIRED from international football${careerProfile.international_retired_year ? ` (${careerProfile.international_retired_year})` : ''}. Do NOT reference international selection, squad announcements or caps as active considerations. Treat international career as legacy only.` : `Active international — ${careerProfile.international_caps || 0} caps for ${careerProfile.national_team || 'national team'}`}
+- Contract expiry: ${careerProfile.contract_expiry_year || 'unknown'}
+${careerProfile.career_stage === 'late_career' ? '- LATE CAREER ATHLETE: Recommendations must address post-playing transition, legacy positioning and commercial life after football. Do not treat this as a long-term brand building exercise.' : ''}
+${careerProfile.career_stage === 'rising' ? '- RISING CAREER ATHLETE: World Cup 2026 selection momentum is commercially significant. International squad announcements are material reputation events.' : ''}
+` : 'No career profile available.'}
 
 CRITICAL FILTERING RULE: You are analysing ${athleteName} ONLY. Completely ignore articles about other players even if they mention the same team.
 
@@ -1140,7 +1149,7 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
   // Generate strategic intelligence
   if (ANTHROPIC_API_KEY) {
     console.log('📋 Generating strategic intelligence...');
-    const strategicIntel = await generateStrategicIntelligence(scores, athleteData, context, athleteName);
+    const strategicIntel = await generateStrategicIntelligence(scores, athleteData, context, athleteName, careerProfile);
     if (strategicIntel) base.strategic_intelligence = strategicIntel;
   }
 
