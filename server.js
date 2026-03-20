@@ -961,7 +961,7 @@ REPUTATION SCORES:
 - Influence: ${scores.influenceScore}/100
 - Composite: ${scores.compositeScore}/100
 ${sponsorStatus}
-${controversyContext}
+${controversyContext}${context.twitterDormantDays && context.twitterDormantDays > 90 ? `TWITTER INACTIVITY ALERT: Last tweet was ${context.twitterDormantDays} days ago. This is a significant commercial negative — brands pay for active amplification, not dormant accounts. Flag this explicitly in recommendations.` : ''}
 
 RECENT NEWS HEADLINES:
 ${newsHeadlines}
@@ -970,7 +970,7 @@ RECENT SOCIAL MEDIA:
 ${recentTweets}
 
 STATISTICS:
-- Twitter: ${context.twitterPctPositive}% positive, ${context.twitterFollowers} followers, ${context.twitterMentions} mentions
+- Twitter: ${context.twitterPctPositive}% positive, ${context.twitterFollowers} followers, ${context.twitterMentions} mentions${context.twitterDormantDays && context.twitterDormantDays > 90 ? ` — DORMANT: last post ${context.twitterDormantDays} days ago` : ''}
 - Instagram: ${context.instagramPctPositive}% positive, ${context.instagramFollowers} followers, ${context.instagramPosts} posts
 - News: ${context.newsMentions} articles, ${context.newsSentiment}
 CAREER CONTEXT:
@@ -1401,6 +1401,10 @@ const seen = new Set();
         likes: t.likes || 0, retweets: t.retweets || 0,
         date: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recent'
       })),
+      lastTweetDate: tweets.length > 0 && tweets[0].createdAt ? tweets[0].createdAt : null,
+      twitterDormantDays: tweets.length > 0 && tweets[0].createdAt 
+        ? Math.floor((Date.now() - new Date(tweets[0].createdAt).getTime()) / (1000 * 60 * 60 * 24))
+        : null,
       brandRiskArticles: scores.brandRiskArticles || []
     };
 
