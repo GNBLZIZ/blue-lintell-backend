@@ -782,8 +782,10 @@ async function generateScoreExplanation(metricName, score, context, athleteName,
       `${careerProfile.contract_expiry_year ? `, contract expires: ${careerProfile.contract_expiry_year}` : ''}.` +
       `${careerProfile.career_stage === 'late_career' ? ' IMPORTANT: This athlete is in late career — recommendations should address post-career positioning, legacy building and commercial transition, not just short-term profile management.' : ''}` +
       `${careerProfile.career_stage === 'rising' ? ' IMPORTANT: This athlete is in rising career stage — World Cup 2026 selection and momentum are commercially significant. England squad announcements are material reputation events.' : ''}`
+   : '';
+  const dormancyContext = context.twitterDormantDays && context.twitterDormantDays > 90
+    ? `TWITTER INACTIVITY: Last tweet was ${context.twitterDormantDays} days ago. Flag this explicitly when analysing Influence, Authenticity or Relevance.`
     : '';
-
   const scoreGuidance = {
     'Sentiment': `Measures EMOTIONAL TONE — how people feel about the athlete. Focus on: positive/negative language in tweets and headlines, fan emotional reactions, praise vs criticism. Distinguish from Credibility: Sentiment is about FEELINGS, not facts.`,
 
@@ -793,8 +795,8 @@ async function generateScoreExplanation(metricName, score, context, athleteName,
 
     'Leadership': `Measures INFLUENCE & ON-FIELD AUTHORITY — leadership qualities and team influence.
 ${careerContext}
-CALIBRATION: A solid Premier League player scores 55-65. Scores above 75 require clear evidence of captaincy, mentoring, or community leadership. Nobody scores above 85.
-Focus on: captaincy mentions, manager/teammate quotes about leadership, calm professional statements during adversity, community/charity work.`,
+${dormancyContext}
+CALIBRATION: A solid Premier League player scores 55-65.Focus on: captaincy mentions, manager/teammate quotes about leadership, calm professional statements during adversity, community/charity work.`,
 
     'Authenticity': `Measures GENUINE VOICE & CONSISTENCY — whether the athlete appears real vs manufactured.
 Focus on: consistency in messaging over time, personal brand alignment, genuine moments vs scripted PR, personal voice vs corporate speak.
@@ -814,7 +816,7 @@ SCORING COMPONENTS:
 - CAREER AUTHORITY (30%): International caps, tournament appearances, club pedigree, years at elite level
 
 ${careerContext}
-
+${dormancyContext}
 CRITICAL CONTEXT TO FACTOR IN:
 - If Twitter/X shows no recent posts (last post over 6 months ago), this is a significant commercial negative. Brands pay for active amplification, not dormant accounts. Flag this explicitly.
 - If Instagram is the primary active channel, assess whether that platform alone can deliver sufficient commercial reach.
