@@ -993,6 +993,57 @@ export default function AthleteDetail() {
             </div>
           </div>
 
+          {/* Channel Strategy */}
+              <div className="fade-in" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)', marginBottom: '2rem' }}>
+                <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Channel Strategy</h3>
+                {(() => {
+                  const lastTweetDate = dashboard.recent_tweets?.[0]?.createdAt;
+                  const dormantDays = lastTweetDate ? Math.floor((Date.now() - new Date(lastTweetDate).getTime()) / (1000 * 60 * 60 * 24)) : null;
+                  const twitterStatus = !dashboard.twitter_followers ? 'NOT SET UP' : dormantDays > 365 ? 'DORMANT' : dormantDays > 90 ? 'INACTIVE' : 'ACTIVE';
+                  const twitterColor = twitterStatus === 'ACTIVE' ? COLORS.success : twitterStatus === 'INACTIVE' ? COLORS.warning : COLORS.danger;
+                  const instaPostCount = (dashboard.recent_instagram_posts || []).length;
+                  const instaStatus = !dashboard.instagram_followers ? 'NOT SET UP' : instaPostCount === 0 ? 'DORMANT' : dashboard.avg_engagement_rate_instagram > 2 ? 'ACTIVE' : 'LOW ENGAGEMENT';
+                  const instaColor = instaStatus === 'ACTIVE' ? COLORS.success : instaStatus === 'LOW ENGAGEMENT' ? COLORS.warning : COLORS.danger;
+                  const newsStatus = (dashboard.news_articles_count || 0) > 10 ? 'HIGH COVERAGE' : (dashboard.news_articles_count || 0) > 3 ? 'MODERATE' : 'LOW';
+                  const newsColor = newsStatus === 'HIGH COVERAGE' ? COLORS.success : newsStatus === 'MODERATE' ? COLORS.warning : '#64748b';
+                  const channels = [
+                    {
+                      name: 'Twitter / X',
+                      status: twitterStatus,
+                      color: twitterColor,
+                      stats: dashboard.twitter_followers ? `${(dashboard.twitter_followers / 1000).toFixed(0)}K followers · ${dashboard.avg_engagement_rate_twitter ? dashboard.avg_engagement_rate_twitter.toFixed(2) + '% engagement' : 'no engagement data'}` : 'No data',
+                      note: dormantDays > 90 ? `Last post ${dormantDays} days ago — brands pay for active amplification, not dormant accounts` : dormantDays ? `Last post ${dormantDays} days ago` : 'No post date available'
+                    },
+                    {
+                      name: 'Instagram',
+                      status: instaStatus,
+                      color: instaColor,
+                      stats: dashboard.instagram_followers ? `${(dashboard.instagram_followers / 1000000).toFixed(1)}M followers · ${dashboard.avg_engagement_rate_instagram ? dashboard.avg_engagement_rate_instagram.toFixed(2) + '% engagement' : 'no engagement data'}` : 'No data',
+                      note: instaStatus === 'LOW ENGAGEMENT' ? 'Reach exists but audience not engaging — content strategy review needed' : instaStatus === 'ACTIVE' ? 'Primary active channel — strong commercial amplification potential' : 'No recent activity detected'
+                    },
+                    {
+                      name: 'News Media',
+                      status: newsStatus,
+                      color: newsColor,
+                      stats: `${dashboard.news_articles_count || 0} articles in last 28 days`,
+                      note: newsStatus === 'HIGH COVERAGE' ? 'Strong media presence — ensure coverage is being monitored for brand risk' : newsStatus === 'MODERATE' ? 'Moderate coverage — primarily club-driven rather than personal profile' : 'Low media footprint — limited earned media value currently'
+                    }
+                  ];
+                  return channels.map((ch, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1rem 0', borderBottom: i < channels.length - 1 ? `1px solid ${COLORS.border}` : 'none' }}>
+                      <div style={{ minWidth: 110 }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e2e8f0' }}>{ch.name}</div>
+                        <div style={{ marginTop: '0.25rem', display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: 4, background: `${ch.color}20`, border: `1px solid ${ch.color}50`, fontSize: '0.7rem', fontWeight: 700, color: ch.color, letterSpacing: '0.05em' }}>{ch.status}</div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.25rem' }}>{ch.stats}</div>
+                        <div style={{ fontSize: '0.82rem', color: '#64748b', fontStyle: 'italic' }}>{ch.note}</div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+
           {/* Strategic Intelligence */}
           {pd.strategic_intelligence && (
             <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
