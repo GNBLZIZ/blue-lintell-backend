@@ -1006,7 +1006,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
   try {
     const res = await axios.post(
       'https://api.anthropic.com/v1/messages',
-      { model: CLAUDE_MODEL, max_tokens: 900, messages: [{ role: 'user', content: prompt }] },
+      { model: CLAUDE_MODEL, max_tokens: 1400, messages: [{ role: 'user', content: prompt }] },
       {
         headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': ANTHROPIC_VERSION },
         timeout: 60000,
@@ -1019,6 +1019,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
     }
     const text = (res.data?.content?.[0]?.text || '').replace(/\*\*/g, '').replace(/\*/g, '');
     const allLines = text.split('\n').map(s => s.trim()).filter(Boolean);
+    console.log('📋 Strategic intel raw:', text.substring(0, 500));
     const firstBulletIndex = allLines.findIndex(l => l.startsWith('•') || l.startsWith('-'));
     const overviewLines = firstBulletIndex > 0 ? allLines.slice(0, firstBulletIndex) : [allLines[0] || ''];
     const overview = overviewLines.join(' ').trim();
