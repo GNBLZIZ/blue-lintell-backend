@@ -913,7 +913,7 @@ FORMAT:
     const bulletLines = lines.filter(l => l.startsWith('•') || l.startsWith('-'));
     const summaryLines = lines.filter(l => !l.startsWith('•') && !l.startsWith('-') && !l.startsWith('DERIVED_SCORE'));
     const summary = summaryLines.join(' ').trim();
-    const breakdown = bulletLines.map(l => `\u2022 ${l.replace(/^[\u2022\-]\s*/, '')}`);
+    const breakdown = bulletLines.map(l => `• ${l.replace(/^[•\-]\s*/, '')}`);
 
     return { summary, breakdown, derivedScore };
   } catch (e) {
@@ -985,7 +985,7 @@ ${careerProfile.career_stage === 'rising' ? '- RISING CAREER ATHLETE: World Cup 
 
 CRITICAL FILTERING RULE: You are analysing ${athleteName} ONLY. Completely ignore articles about other players even if they mention the same team.
 
-TASK: Provide strategic intelligence analysis covering current position AND forward-looking outlook.
+TASK: Provide strategic intelligence analysis.
 
 OUTPUT FORMAT (no labels, no markdown, natural sections):
 
@@ -1001,16 +1001,8 @@ Tactical actions for next 7-14 days. Specific and actionable. Prioritised by urg
 [WATCH-OUTS — 3-4 bullets with •]
 Early warning signals that need monitoring. Specific timing and triggers.
 
-[LOOKING AHEAD — 30-90 DAY OUTLOOK — 3-4 bullets with •]
-Forward-looking intelligence based on current trajectory, career stage and known upcoming events. Consider:
-- Where scores are likely to trend based on current momentum
-- Upcoming reputation windows (fixtures, transfer windows, contract situations, seasonal events)
-- Commercial opportunities or risks on the horizon
-- For late career athletes: post-playing transition signals and timing
-- Whether current social media strategy (including strategic silence) is appropriate for the next 90 days
-- What success looks like in 90 days if current recommendations are followed
+STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Write like you're briefing a client who pays £12k/month. British English throughout.`;
 
-STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Write like you're briefing a client who pays £12k/month. British English throughout.
   try {
     const res = await axios.post(
       'https://api.anthropic.com/v1/messages',
@@ -1032,7 +1024,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
     const overview = overviewLines.join(' ').trim();
     const allBullets = allLines
       .filter(l => l.startsWith('•') || l.startsWith('-'))
-      .map(l => `\u2022 ${l.replace(/^[\u2022\-]\s*/, '')}`);
+      .map(l => `• ${l.replace(/^[•\-]\s*/, '')}`);
     const total = allBullets.length;
     if (total === 0) {
       return { strategic_overview: overview, key_risks: ['• No specific risks identified'], immediate_recommendations: ['• Continue monitoring'], watch_outs: ['• Track sentiment changes'] };
