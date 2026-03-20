@@ -1019,7 +1019,7 @@ STYLE: No markdown. Punchy bullets under 30 words. Direct and authoritative. Wri
     }
     const text = (res.data?.content?.[0]?.text || '').replace(/\*\*/g, '').replace(/\*/g, '');
     const allLines = text.split('\n').map(s => s.trim()).filter(Boolean);
-    console.log('📋 Strategic intel raw:', text.substring(0, 500));
+    console.log('📋 Strategic intel raw:', text.substring(0, 2000));
     const firstBulletIndex = allLines.findIndex(l => l.startsWith('•') || l.startsWith('-'));
     const overviewLines = firstBulletIndex > 0 ? allLines.slice(0, firstBulletIndex) : [allLines[0] || ''];
     const overview = overviewLines.join(' ').trim();
