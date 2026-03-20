@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend
 } from 'recharts';
-import { AlertTriangle, Shield, Target, AlertCircle, CheckCircle, Eye, X } from 'lucide-react';
+import { AlertTriangle, Shield, Target, AlertCircle, CheckCircle, Eye, X, TrendingUp } from 'lucide-react';
 import { api } from '../api';
 
 const COLORS = {
