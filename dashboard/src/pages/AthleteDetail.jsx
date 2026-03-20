@@ -560,7 +560,7 @@ export default function AthleteDetail() {
                   Refreshing…
                 </>
               ) : (
-                '↻ Refresh data'
+                '↻ Update now'
               )}
             </button>
           </div>
