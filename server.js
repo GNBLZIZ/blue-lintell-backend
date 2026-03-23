@@ -749,8 +749,8 @@ async function calculateReputationScores(athleteData, athleteId, careerProfile) 
 // ==================== ALERT LEVEL ====================
 
 function calculateAlertLevel(data) {
-  const s = data.sentiment_score ?? 70;
-  const c = data.controversy_score ?? 30;
+  const s = data.sentiment_rolling_avg ?? data.sentiment_score ?? 70;
+  const c = data.controversy_rolling_avg ?? data.controversy_score ?? 30;
   if (s < 50 || c > 40) return 'critical';
   if (s < 60 || c > 30) return 'elevated';
   return 'nominal';
