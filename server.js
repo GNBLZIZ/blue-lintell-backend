@@ -1180,8 +1180,6 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
 
 async function saveHistoricalSnapshot(athleteId, dashboardData) {
   const today = new Date().toISOString().split('T')[0];
-  const { data: existing } = await supabase.from('athlete_score_history').select('id').eq('athlete_id', athleteId).eq('snapshot_date', today).maybeSingle();
-  if (existing) return { data: existing, error: null };
   const row = {
     athlete_id: athleteId, snapshot_date: today,
     sentiment_score: dashboardData.sentiment_score,
@@ -1196,7 +1194,7 @@ async function saveHistoricalSnapshot(athleteId, dashboardData) {
     news_mentions: dashboardData.total_mentions ?? dashboardData.news_articles_count ?? 0,
     overall_alert_level: calculateAlertLevel(dashboardData)
   };
-  const { data, error } = await supabase.from('athlete_score_history').insert(row).select().single();
+  const { data, error } = await supabase.from('athlete_score_history').upsert(row, { onConflict: 'athlete_id,snapshot_date' }).select().single();
   if (error) { console.error('Snapshot error:', error.message); return { data: null, error }; }
   console.log('✅ Historical snapshot saved');
   return { data, error: null };
