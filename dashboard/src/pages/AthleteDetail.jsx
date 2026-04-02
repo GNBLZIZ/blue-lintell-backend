@@ -840,6 +840,7 @@ export default function AthleteDetail() {
               </tbody>
             </table>
           </div>
+        </div>
         {history && history.length > 1 && (
           <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', marginTop: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
             <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>30-day trajectory</h3>
