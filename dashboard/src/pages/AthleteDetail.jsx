@@ -803,65 +803,67 @@ export default function AthleteDetail() {
       )}
 
       {/* ── SCORE HISTORY TAB ── */}
-      {activeTab === 'temporal' && (
-        <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', marginBottom: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
-          <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
-          <div className="temporal-scroll">
-            <table className="temporal-table">
-              <thead>
-                <tr style={{ borderBottom: `3px solid ${COLORS.gold}` }}>
-                  <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Today's score<br/><span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 400 }}>(24hr snapshot)</span></th>
-                  <th style={{ textAlign: 'right', padding: '1.5rem', fontSize: '1rem', color: COLORS.gold, fontWeight: 900, textTransform: 'uppercase', background: `${COLORS.gold}15`, borderLeft: `3px solid ${COLORS.gold}`, borderRight: `3px solid ${COLORS.gold}` }}>
-                    7-DAY AVERAGE<br/><span style={{ fontSize: '0.7rem', fontWeight: 600 }}>(smoothed trend)</span>
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 week ago</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 month ago</th>
-                  <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Monthly trend</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scoreEvolution.map((row) => (
-                  <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
-                    <td style={{ padding: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>{row.metric}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 600, fontSize: '1rem', color: '#cbd5e1' }}>{row.current}</td>
-                    <td style={{ padding: '1.5rem', textAlign: 'right', color: COLORS.gold, fontWeight: 900, fontSize: '1.5rem', background: `${COLORS.gold}10`, borderLeft: `3px solid ${COLORS.gold}40`, borderRight: `3px solid ${COLORS.gold}40`, textShadow: `0 0 10px ${COLORS.gold}30` }}>{row.rolling7d}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day7}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day30}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '0.95rem' }}>
-                      <span style={{ color: row.trend === 'up' ? COLORS.success : row.trend === 'down' ? COLORS.danger : COLORS.neutral }}>
-                        {row.trend === 'up' ? '↗ ' : row.trend === 'down' ? '↘ ' : '→ '}
-                        {row.trend === 'up' ? 'Improving' : row.trend === 'down' ? 'Declining' : 'Stable'}
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem' }}>({row.change})</span>
-                      </span>
-                    </td>
+     {activeTab === 'temporal' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div style={{ background: COLORS.cardBg, border: `2px solid ${COLORS.gold}40`, borderRadius: 12, padding: '2rem', boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 3px 10px rgba(201,169,97,0.2)' }}>
+            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>Score evolution over time</h3>
+            <div className="temporal-scroll">
+              <table className="temporal-table">
+                <thead>
+                  <tr style={{ borderBottom: `3px solid ${COLORS.gold}` }}>
+                    <th style={{ textAlign: 'left', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Metric</th>
+                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Today's score<br/><span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 400 }}>(24hr snapshot)</span></th>
+                    <th style={{ textAlign: 'right', padding: '1.5rem', fontSize: '1rem', color: COLORS.gold, fontWeight: 900, textTransform: 'uppercase', background: `${COLORS.gold}15`, borderLeft: `3px solid ${COLORS.gold}`, borderRight: `3px solid ${COLORS.gold}` }}>
+                      7-DAY AVERAGE<br/><span style={{ fontSize: '0.7rem', fontWeight: 600 }}>(smoothed trend)</span>
+                    </th>
+                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 week ago</th>
+                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>1 month ago</th>
+                    <th style={{ textAlign: 'right', padding: '1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Monthly trend</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {scoreEvolution.map((row) => (
+                    <tr key={row.metric} style={{ borderBottom: `1px solid ${COLORS.border}20` }}>
+                      <td style={{ padding: '1rem', fontWeight: 600, fontSize: '0.95rem' }}>{row.metric}</td>
+                      <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 600, fontSize: '1rem', color: '#cbd5e1' }}>{row.current}</td>
+                      <td style={{ padding: '1.5rem', textAlign: 'right', color: COLORS.gold, fontWeight: 900, fontSize: '1.5rem', background: `${COLORS.gold}10`, borderLeft: `3px solid ${COLORS.gold}40`, borderRight: `3px solid ${COLORS.gold}40`, textShadow: `0 0 10px ${COLORS.gold}30` }}>{row.rolling7d}</td>
+                      <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day7}</td>
+                      <td style={{ padding: '1rem', textAlign: 'right', color: '#94a3b8', fontSize: '0.9rem' }}>{row.day30}</td>
+                      <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 700, fontSize: '0.95rem' }}>
+                        <span style={{ color: row.trend === 'up' ? COLORS.success : row.trend === 'down' ? COLORS.danger : COLORS.neutral }}>
+                          {row.trend === 'up' ? '↗ ' : row.trend === 'down' ? '↘ ' : '→ '}
+                          {row.trend === 'up' ? 'Improving' : row.trend === 'down' ? 'Declining' : 'Stable'}
+                          <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem' }}>({row.change})</span>
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+          {history && history.length > 1 && (
+            <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>30-day trajectory</h3>
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={[...history].reverse().slice(-30)} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="snapshot_date" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} interval="preserveStartEnd" />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} width={28} />
+                  <Tooltip contentStyle={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 8, fontSize: '0.8rem' }} labelFormatter={v => new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} />
+                  <Legend wrapperStyle={{ fontSize: '0.75rem', paddingTop: '1rem' }} />
+                  <Line type="monotone" dataKey="sentiment_score" name="Sentiment" stroke="#3b82f6" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="credibility_score" name="Credibility" stroke="#c9a961" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="likeability_score" name="Likeability" stroke="#10b981" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="leadership_score" name="Leadership" stroke="#8b5cf6" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="authenticity_score" name="Authenticity" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="controversy_score" name="Controversy" stroke="#ef4444" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="relevance_score" name="Relevance" stroke="#06b6d4" dot={false} strokeWidth={1.5} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
-        {history && history.length > 1 && (
-          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', marginTop: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>30-day trajectory</h3>
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={[...history].reverse().slice(-30)} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="snapshot_date" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} interval="preserveStartEnd" />
-                <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} width={28} />
-                <Tooltip contentStyle={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 8, fontSize: '0.8rem' }} labelFormatter={v => new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} />
-                <Legend wrapperStyle={{ fontSize: '0.75rem', paddingTop: '1rem' }} />
-                <Line type="monotone" dataKey="sentiment_score" name="Sentiment" stroke="#3b82f6" dot={false} strokeWidth={1.5} />
-                <Line type="monotone" dataKey="credibility_score" name="Credibility" stroke="#c9a961" dot={false} strokeWidth={1.5} />
-                <Line type="monotone" dataKey="likeability_score" name="Likeability" stroke="#10b981" dot={false} strokeWidth={1.5} />
-                <Line type="monotone" dataKey="leadership_score" name="Leadership" stroke="#8b5cf6" dot={false} strokeWidth={1.5} />
-                <Line type="monotone" dataKey="authenticity_score" name="Authenticity" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
-                <Line type="monotone" dataKey="controversy_score" name="Controversy" stroke="#ef4444" dot={false} strokeWidth={1.5} />
-                <Line type="monotone" dataKey="relevance_score" name="Relevance" stroke="#06b6d4" dot={false} strokeWidth={1.5} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
       )}
 
       {/* ── ALERTS TAB ── */}
