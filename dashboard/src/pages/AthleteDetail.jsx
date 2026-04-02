@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend
 } from 'recharts';
 import { AlertTriangle, Shield, Target, AlertCircle, CheckCircle, Eye, X, TrendingUp } from 'lucide-react';
@@ -841,6 +841,28 @@ export default function AthleteDetail() {
             </table>
           </div>
         </div>
+        {history && history.length > 1 && (
+          <div style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '2rem', marginTop: '2rem', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 1.5rem', fontSize: '1.1rem', fontWeight: 700, color: COLORS.gold }}>30-day trajectory</h3>
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={[...history].reverse().slice(-30)} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="snapshot_date" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} interval="preserveStartEnd" />
+                <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} width={28} />
+                <Tooltip contentStyle={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 8, fontSize: '0.8rem' }} labelFormatter={v => new Date(v).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} />
+                <Legend wrapperStyle={{ fontSize: '0.75rem', paddingTop: '1rem' }} />
+                <Line type="monotone" dataKey="sentiment_score" name="Sentiment" stroke="#3b82f6" dot={false} strokeWidth={1.5} />
+                <Line type="monotone" dataKey="credibility_score" name="Credibility" stroke="#c9a961" dot={false} strokeWidth={1.5} />
+                <Line type="monotone" dataKey="likeability_score" name="Likeability" stroke="#10b981" dot={false} strokeWidth={1.5} />
+                <Line type="monotone" dataKey="leadership_score" name="Leadership" stroke="#8b5cf6" dot={false} strokeWidth={1.5} />
+                <Line type="monotone" dataKey="authenticity_score" name="Authenticity" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
+                <Line type="monotone" dataKey="controversy_score" name="Controversy" stroke="#ef4444" dot={false} strokeWidth={1.5} />
+                <Line type="monotone" dataKey="relevance_score" name="Relevance" stroke="#06b6d4" dot={false} strokeWidth={1.5} />
+                <Line type="monotone" dataKey="influence_score" name="Influence" stroke="#ec4899" dot={false} strokeWidth={1.5} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       )}
 
       {/* ── ALERTS TAB ── */}
