@@ -1189,6 +1189,7 @@ async function saveHistoricalSnapshot(athleteId, dashboardData) {
     authenticity_score: dashboardData.authenticity_score,
     controversy_score: dashboardData.controversy_score,
     relevance_score: dashboardData.relevance_score,
+    influence_score: dashboardData.influence_score,
     twitter_followers: dashboardData.twitter_followers,
     instagram_followers: dashboardData.instagram_followers,
     news_mentions: dashboardData.total_mentions ?? dashboardData.news_articles_count ?? 0,
