@@ -859,6 +859,7 @@ export default function AthleteDetail() {
                   <Line type="monotone" dataKey="authenticity_score" name="Authenticity" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
                   <Line type="monotone" dataKey="controversy_score" name="Controversy" stroke="#ef4444" dot={false} strokeWidth={1.5} />
                   <Line type="monotone" dataKey="relevance_score" name="Relevance" stroke="#06b6d4" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="influence_score" name="Influence" stroke="#ec4899" dot={false} strokeWidth={1.5} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
