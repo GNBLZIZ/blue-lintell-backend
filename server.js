@@ -1139,16 +1139,29 @@ async function buildPerceptionDetails(scores, athleteData, context, athleteName,
   }
 
   // Now recalculate composite with all 8 scores populated
+  // Use 7-day rolling averages for stability — same numbers shown on the score cards
+  // Falls back to rollingAverages (calculated inside this function) then raw scores
+  const ra = storedRollingAvgs || {};
+  const compSentiment    = ra.sentiment_rolling_avg    ?? rollingAverages['sentiment_score']    ?? scores.sentimentScore;
+  const compCredibility  = ra.credibility_rolling_avg  ?? rollingAverages['credibility_score']  ?? scores.credibilityScore;
+  const compLikeability  = ra.likeability_rolling_avg  ?? rollingAverages['likeability_score']  ?? scores.likeabilityScore;
+  const compLeadership   = ra.leadership_rolling_avg   ?? rollingAverages['leadership_score']   ?? scores.leadershipScore;
+  const compAuthenticity = ra.authenticity_rolling_avg ?? rollingAverages['authenticity_score'] ?? scores.authenticityScore;
+  const compControversy  = ra.controversy_rolling_avg  ?? rollingAverages['controversy_score']  ?? scores.controversyScore;
+  const compRelevance    = ra.relevance_rolling_avg    ?? rollingAverages['relevance_score']    ?? scores.relevanceScore;
+  const compInfluence    = ra.influence_rolling_avg    ?? rollingAverages['influence_score']    ?? scores.influenceScore;
+
   scores.compositeScore = Math.round(
-    (scores.sentimentScore    * 0.15) +
-    (scores.credibilityScore  * 0.12) +
-    (scores.likeabilityScore  * 0.12) +
-    (scores.leadershipScore   * 0.12) +
-    (scores.authenticityScore * 0.12) +
-    (Math.max(0, 100 - scores.controversyScore) * 0.17) +
-    (scores.relevanceScore    * 0.10) +
-    (scores.influenceScore    * 0.10)
+    (compSentiment    * 0.15) +
+    (compCredibility  * 0.12) +
+    (compLikeability  * 0.12) +
+    (compLeadership   * 0.12) +
+    (compAuthenticity * 0.12) +
+    (Math.max(0, 100 - compControversy) * 0.17) +
+    (compRelevance    * 0.10) +
+    (compInfluence    * 0.10)
   );
+  console.log(`📊 Composite score (rolling avg based): ${scores.compositeScore}`);
 
   // Generate strategic intelligence
   if (ANTHROPIC_API_KEY) {
